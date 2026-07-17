@@ -1,0 +1,8 @@
+[package]
+name = "repo-env"
+version = "0.1.0"
+edition = "2021"
+description = "Map a checkout's git remote to a personal dev-environment overlay; set up direnv activation and run commands inside the environment."
+license = "MIT"
+
+[dependencies]
