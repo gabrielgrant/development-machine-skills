@@ -62,7 +62,6 @@ direnv
 curl
 ca-certificates
 tmux
-jq
 build-essential
 pkg-config
 libssl-dev
