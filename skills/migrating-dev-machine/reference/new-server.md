@@ -77,8 +77,9 @@ differ, don't use `--numeric-ids` — fix ownership on the destination after).
     `apt-commandlines.txt` (the `Commandline:` entries are what you actually
     typed) minus provisioning noise (grub, qemu-guest-agent, unattended
     upgrades, cloud-image bundles). Check availability
-    (`apt-cache show`), then encode in Ansible and apply — current versions,
-    dependencies auto-resolved. Recreate holds only if you remember why.
+    (`apt-cache show`), then add them to `host/apt-packages.txt` and rerun
+    `host/apply.sh` — current versions, dependencies auto-resolved.
+    Recreate holds only if you remember why.
 12. System config: from `dpkg-conffile-changes.tsv` and
     `custom-system-paths.tsv`, reapply only deliberate customizations
     (systemd units, sshd_config.d, sysctl.d, cron). Validate sshd with

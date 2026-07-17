@@ -20,7 +20,7 @@ Machine state is split into layers, each with one owner:
 
 | Layer | Owner | Lives in |
 |---|---|---|
-| Host packages, services, groups | Ansible + APT | `~/server-config/ansible/` |
+| Host packages, services, groups | apt manifest + idempotent `apply.sh` | `~/server-config/host/` |
 | `/etc` change audit | etckeeper | `/etc/.git` (local) |
 | Dotfiles (loaders + snippets) | chezmoi | `~/server-config/dotfiles/` |
 | Everyday CLI tools | Devbox Global | `~/server-config/devbox-global/` |

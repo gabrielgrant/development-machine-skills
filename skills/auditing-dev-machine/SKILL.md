@@ -21,7 +21,7 @@ Sections and what to do per finding:
 |---|---|---|
 | chezmoi diff | live dotfiles differ from desired state | normalizing-dotfiles |
 | loader integrity | duplicate/missing marker blocks, installer lines outside them | normalizing-dotfiles |
-| apt drift | manually-installed packages not in the Ansible playbook | encode in Ansible or `apt-mark auto`/remove |
+| apt drift | manually-installed packages in neither `host/apt-packages.txt` nor the adoption baseline | add to manifest or `apt-mark auto`/remove |
 | etckeeper | uncommitted `/etc` changes | review, `sudo etckeeper commit` |
 | unmanaged binaries | files in `~/.local/bin` etc. with no recorded install | installing-dev-tools ladder |
 | failed units / timers | broken services | fix or remove the unit |
@@ -31,8 +31,8 @@ For deeper point-in-time capture (e.g. pre-migration), use
 migrating-dev-machine's `machine-inventory.sh` instead — the audit is a
 quick delta check, the inventory is a full snapshot.
 
-An Ansible check is worth running alongside when the playbook exists:
-`ansible-playbook --check --diff $SERVER_CONFIG_DIR/ansible/playbook.yml`.
+`$SERVER_CONFIG_DIR/host/apply.sh` also prints package drift at the end of
+every run, so applying and auditing agree by construction.
 
 ## Cadence
 

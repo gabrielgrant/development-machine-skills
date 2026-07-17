@@ -1,6 +1,6 @@
 ---
 name: installing-dev-tools
-description: Decides where a new tool belongs on a managed dev machine (apt/Ansible, Devbox Global, project overlay, nix flake, pinned binary, or wrapped curl|bash installer) and installs it reproducibly. Use when installing any CLI, runtime, language toolchain, or package on the dev machine, when a tool ships only a curl|bash installer, or when apt/npm -g/cargo install/pipx is about to be run ad hoc.
+description: Decides where a new tool belongs on a managed dev machine (host manifest, Devbox Global, project overlay, nix flake, pinned binary, or wrapped curl|bash installer) and installs it reproducibly. Use when installing any CLI, runtime, language toolchain, or package on the dev machine, when a tool ships only a curl|bash installer, or when apt/npm -g/cargo install/pipx is about to be run ad hoc.
 ---
 
 # Installing dev tools
@@ -13,7 +13,7 @@ why — an install that isn't recorded is drift.
 
 | Requirement | Layer |
 |---|---|
-| Needed to administer/bootstrap the machine (docker, ssh, tmux) | Ansible/APT |
+| Needed to administer/bootstrap the machine (docker, ssh, tmux) | host manifest (`$SERVER_CONFIG_DIR/host/apt-packages.txt` + apply.sh) |
 | Useful in nearly every shell (rg, jq, gh, just) | Devbox Global |
 | Needed only for one checkout | Project overlay (see using-project-envs) |
 | Project already declares it (`.nvmrc`, `rust-toolchain.toml`, `devbox.json`, `.devcontainer/`) | Use the project's mechanism |
@@ -35,8 +35,9 @@ Try each level; stop at the first that works.
 2. **Upstream flake**: package entry `github:vendor/tool/v1.2.3`.
 3. **Own local flake** in `$SERVER_CONFIG_DIR/packages/<tool>/` for tools
    shipping static binaries — pinned, checksummed, cleanly removable.
-4. **Ansible-managed binary**: `get_url` with `checksum:` + `unarchive`
-   with `creates:` + symlink into `~/.local/bin`. For host-level tools.
+4. **Host-script-managed binary**: an idempotent script in
+   `$SERVER_CONFIG_DIR/host/scripts.d/` — pinned URL, checksum verify,
+   skip-if-present, symlink into `~/.local/bin`. For host-level tools.
 5. **Wrapped official installer** — when the installer does real work
    (auth, platform detection, self-update). Codify, don't just run it:
    - download and skim the script; pin a version; never pipe blindly
@@ -46,7 +47,7 @@ Try each level; stop at the first that works.
    - if it may still edit dotfiles: snapshot `.bashrc`/`.profile` first,
      diff after, then run the normalizing-dotfiles skill on the diff
    - record the exact invocation in `$SERVER_CONFIG_DIR` (chezmoi
-     `run_onchange_` script for user tools; Ansible for host tools)
+     `run_onchange_` script for user tools; `host/scripts.d/` for host tools)
 6. **Temporary unmanaged**: evaluation only. Note it somewhere visible;
    promote or remove before it becomes load-bearing.
 

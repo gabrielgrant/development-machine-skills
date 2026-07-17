@@ -33,15 +33,19 @@ for f in "$HOME/.bashrc" "$HOME/.profile"; do
         sed "s|^|$f: suspicious: |" || true
 done
 
-section "APT DRIFT (manual packages not in Ansible)"
-PLAYBOOK_DIR="$SERVER_CONFIG_DIR/ansible"
-if [ -d "$PLAYBOOK_DIR" ]; then
-    # Anything apt-marked manual that never appears in the ansible tree.
-    apt-mark showmanual | sort -u | while read -r pkg; do
-        grep -rqF -- "$pkg" "$PLAYBOOK_DIR" || echo "unrecorded: $pkg"
-    done | head -n 60
+section "APT DRIFT (manual packages in neither manifest nor baseline)"
+MANIFEST="$SERVER_CONFIG_DIR/host/apt-packages.txt"
+BASELINE="$SERVER_CONFIG_DIR/host/apt-baseline.txt"
+if [ -f "$MANIFEST" ]; then
+    drift=$(comm -23 <(apt-mark showmanual | sort -u) \
+        <(grep -hvE '^[[:space:]]*(#|$)' "$MANIFEST" "$BASELINE" 2>/dev/null | sort -u))
+    if [ -n "$drift" ]; then
+        printf 'unrecorded: %s\n' $drift | head -n 60
+    else
+        echo "clean"
+    fi
 else
-    echo "no ansible dir at $PLAYBOOK_DIR (all $(apt-mark showmanual | wc -l) manual packages unrecorded)"
+    echo "no manifest at $MANIFEST — run setting-up-dev-machine apply.sh"
 fi
 
 section "ETCKEEPER"

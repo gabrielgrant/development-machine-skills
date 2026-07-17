@@ -10,7 +10,7 @@ owner; anything unowned is drift.
 
 | Layer | Owner | Lives in |
 |---|---|---|
-| Host packages, Docker, services, groups, firewall | Ansible + APT | `$SERVER_CONFIG_DIR/ansible/` |
+| Host packages, Docker, services, groups, firewall | apt manifest + idempotent apply/host scripts | `$SERVER_CONFIG_DIR/host/` |
 | Actual `/etc` change history | etckeeper | `/etc/.git` (local only, sensitive) |
 | Shell/git/ssh config (dotfiles) | chezmoi | `$SERVER_CONFIG_DIR/dotfiles/` |
 | Everyday CLI tools (rg, jq, fzf, gh...) | Devbox Global | `$SERVER_CONFIG_DIR/devbox-global/` |
@@ -34,6 +34,8 @@ owner; anything unowned is drift.
   `direnv exec` / the `repo-env` tool.
 - Every deliberate machine change becomes a commit in `$SERVER_CONFIG_DIR`
   with provenance ("from rustup installer", "needed by project X").
+- The host layer is deliberately plain bash + a package manifest, not
+  Ansible; see setting-up-dev-machine for why and when to reintroduce it.
 
 ## Which skill
 

@@ -5,7 +5,7 @@ description: Backup and restore for the persistent-state layer of a managed dev 
 
 # Backing up a dev machine
 
-The managed layers (Ansible, chezmoi, devbox configs, overlays) are already
+The managed layers (host manifest, chezmoi, devbox configs, overlays) are already
 in git — a backup of `$SERVER_CONFIG_DIR`'s remote covers them. This skill
 covers everything git deliberately does NOT hold.
 
