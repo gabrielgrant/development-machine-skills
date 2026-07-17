@@ -69,7 +69,17 @@ EOF
     CHANGED=1
 fi
 
-# --- 3. converge packages from the manifest ---
+# --- 3. host scripts (apt repos/keyrings/binaries too fiddly for the manifest) ---
+# Run BEFORE manifest convergence so a script can add an apt repo whose
+# packages the manifest then declares (e.g. install-docker.sh + docker-ce).
+# Each must be idempotent.
+for script in "$HOST_DIR"/scripts.d/*.sh; do
+    [ -e "$script" ] || continue
+    log "Running host script: $script"
+    bash "$script"
+done
+
+# --- 4. converge packages from the manifest ---
 mapfile -t wanted < <(grep -vE '^[[:space:]]*(#|$)' "$MANIFEST" | sort -u)
 missing=()
 for pkg in "${wanted[@]}"; do
@@ -83,14 +93,6 @@ if ((${#missing[@]})); then
 else
     log "Manifest packages all present"
 fi
-
-# --- 4. host scripts (repos/keyrings/binaries too fiddly for the manifest) ---
-# Each must be idempotent; e.g. install-docker.sh from the skill templates.
-for script in "$HOST_DIR"/scripts.d/*.sh; do
-    [ -e "$script" ] || continue
-    log "Running host script: $script"
-    bash "$script"
-done
 
 # --- 5. chezmoi + devbox binaries ---
 mkdir -p "$BIN_DIR"

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Host script: Docker Engine from Docker's apt repo. Idempotent.
-# Drop into $SERVER_CONFIG_DIR/host/scripts.d/ — apply.sh runs it.
+# Drop into $SERVER_CONFIG_DIR/host/scripts.d/ — apply.sh runs it before
+# manifest convergence. Also add the docker packages (docker-ce,
+# docker-ce-cli, containerd.io, docker-buildx-plugin,
+# docker-compose-plugin) to host/apt-packages.txt so the manifest stays
+# the complete declarative record and drift checks stay clean.
 set -euo pipefail
 
 if command -v docker >/dev/null 2>&1; then
