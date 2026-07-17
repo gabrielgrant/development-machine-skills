@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+"""chezmoi modify_ script: own only the marker-guarded loader block in
+~/.bashrc, preserving distro/provider content around it."""
+import sys
+
+BEGIN = "# >>> managed shell loader >>>"
+END = "# <<< managed shell loader <<<"
+
+BLOCK = f"""{BEGIN}
+for __f in "$HOME"/.config/shell/bashrc.d/*.sh; do
+    [ -r "$__f" ] && . "$__f"
+done
+unset __f
+{END}"""
+
+text = sys.stdin.read().rstrip("\n")
+
+if BEGIN in text or END in text:
+    if text.count(BEGIN) != 1 or text.count(END) != 1:
+        raise SystemExit("Malformed or duplicated loader markers in .bashrc")
+    before, remainder = text.split(BEGIN, 1)
+    _, after = remainder.split(END, 1)
+    text = before.rstrip("\n") + "\n\n" + BLOCK + after
+else:
+    text = text + "\n\n" + BLOCK
+
+sys.stdout.write(text.rstrip("\n") + "\n")
