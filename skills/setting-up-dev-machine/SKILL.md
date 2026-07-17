@@ -51,8 +51,10 @@ binary download gets an idempotent script in
 `templates/install-docker.sh` is the model. Keep the host layer small:
 Docker, ssh, tmux, build prerequisites — not language runtimes.
 
-**5. Devbox Global.** `devbox global add ripgrep fd fzf bat just
-shellcheck` (adjust to taste), then `devbox global install` — from a
+**5. Devbox Global.** `devbox global add ripgrep fd fzf bat gh just
+shellcheck` (adjust to taste — `jq` is omitted only because apply.sh
+already puts it in the host apt manifest; one owner per tool), then
+`devbox global install` — from a
 not-yet-activated shell, `add` records packages without materializing the
 nix profile, so `install` ensures the binaries actually exist. Symlink or
 copy the resulting global `devbox.json` into
