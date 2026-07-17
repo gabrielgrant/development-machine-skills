@@ -4,6 +4,8 @@
 set -uo pipefail
 
 SERVER_CONFIG_DIR="${SERVER_CONFIG_DIR:-$HOME/server-config}"
+# Non-login shells (ssh cmd, cron) may lack user bin dirs.
+case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) PATH="$HOME/.local/bin:$PATH" ;; esac
 section() { printf '\n=== %s ===\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -30,6 +32,7 @@ for f in "$HOME/.bashrc" "$HOME/.profile"; do
     # Heuristic: installer-ish lines outside the managed pattern.
     grep -nE '(^export PATH=|^\. |^source |nvm\.sh|\.cargo/env|/bin:\$PATH)' "$f" |
         grep -vE 'managed shell loader|/.config/shell/' |
+        grep -vE 'PATH="\$HOME/(bin|\.local/bin):\$PATH"' |
         sed "s|^|$f: suspicious: |" || true
 done
 

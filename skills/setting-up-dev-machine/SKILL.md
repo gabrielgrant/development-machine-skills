@@ -51,9 +51,12 @@ binary download gets an idempotent script in
 `templates/install-docker.sh` is the model. Keep the host layer small:
 Docker, ssh, tmux, build prerequisites — not language runtimes.
 
-**5. Devbox Global.** `devbox global add ripgrep jq fd fzf bat gh just
-shellcheck` (adjust to taste). Symlink or copy the resulting global
-`devbox.json` into `$SERVER_CONFIG_DIR/devbox-global/` and commit.
+**5. Devbox Global.** `devbox global add ripgrep fd fzf bat just
+shellcheck` (adjust to taste), then `devbox global install` — from a
+not-yet-activated shell, `add` records packages without materializing the
+nix profile, so `install` ensures the binaries actually exist. Symlink or
+copy the resulting global `devbox.json` into
+`$SERVER_CONFIG_DIR/devbox-global/` and commit.
 
 **6. Verify.** Open a **new login shell** and check:
 `command -v devbox direnv chezmoi rg` all resolve; `chezmoi diff` is clean;

@@ -139,10 +139,13 @@ fn run_status(cmd: &str, args: &[&str]) -> Result<(), String> {
 }
 
 fn have(cmd: &str) -> bool {
-    Command::new(cmd)
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
+    env::var_os("PATH")
+        .map(|paths| {
+            env::split_paths(&paths).any(|dir| {
+                let p = dir.join(cmd);
+                p.is_file() || p.is_symlink()
+            })
+        })
         .unwrap_or(false)
 }
 
