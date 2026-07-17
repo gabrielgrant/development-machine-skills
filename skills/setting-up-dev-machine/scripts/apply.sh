@@ -149,13 +149,18 @@ write_if_absent() {
     fi
 }
 
-write_if_absent "$SHELL_DIR/profile.d/10-local-bin.sh" <<'EOF'
+# PATH snippets go in BOTH dirs: profile.d covers non-interactive login
+# shells (bash -lc, cron), bashrc.d covers interactive non-login shells
+# (editor terminals, bash -ic). The guards make double-sourcing a no-op.
+for dir in profile.d bashrc.d; do
+    write_if_absent "$SHELL_DIR/$dir/10-local-bin.sh" <<'EOF'
 # Ensure ~/.local/bin is on PATH even for shells that skip the distro block.
 case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
   *) PATH="$HOME/.local/bin:$PATH"; export PATH ;;
 esac
 EOF
+done
 
 write_if_absent "$SHELL_DIR/bashrc.d/40-devbox-global.sh" <<'EOF'
 # Devbox Global: expose globally-managed CLI tools in every shell.

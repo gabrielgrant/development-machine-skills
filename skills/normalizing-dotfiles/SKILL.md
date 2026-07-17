@@ -38,9 +38,11 @@ update never needs to re-append them.
        PATH="$HOME/.fabro/bin:$PATH"; export PATH
    fi
    ```
-   Use `$HOME`, guard on existence, keep it idempotent. Login-session env
-   → `profile.d`; interactive-only behavior (completions, prompt hooks)
-   → `bashrc.d`. Ordering by number prefix; direnv's hook stays last (90).
+   Use `$HOME`, guard on existence, keep it idempotent. Interactive-only
+   behavior (completions, prompt hooks) → `bashrc.d`; PATH/env snippets →
+   **both** dirs (profile.d alone misses interactive non-login shells like
+   editor terminals; the guards make double-sourcing a no-op). Ordering by
+   number prefix; direnv's hook stays last (90).
 2. Delete the installer's lines from the core dotfile.
 3. `chezmoi add` the snippet; `chezmoi apply`; verify in a fresh login
    shell (`command -v <tool>`).
