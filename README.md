@@ -51,17 +51,22 @@ core files.
 ```bash
 cd ~/repos
 git clone git@github.com:someorg/proj.git proj   # existing project
-mkdir proj && cd proj && git init                # or brand-new (no GitHub repo needed:
-                                                 # repo-env keys new projects as local/<dirname>)
-cd ~/repos/proj
-repo-env setup     # once per checkout; creates the env overlay + .envrc
+mkdir proj                                       # or brand-new — no GitHub repo needed
+cd proj
+repo-env setup     # once per checkout (offers git init for fresh dirs)
 ```
+
+For **your own projects** (no origin remote yet), setup defaults to a
+committable `devbox.json` + `.envrc` in the repo — it travels with the
+project and works on any machine. For **third-party repos** it defaults to
+a personal overlay outside the repo so upstream stays untouched
+(`--in-repo`/`--overlay` override either way).
 
 From then on, `cd`-ing into the repo activates its environment
 automatically, and **anything you launch from that shell — including
-agents — inherits it**. Ask the agent to populate the environment
-(`devbox add ... --config "$(repo-env path)"`) as needs surface, or do it
-yourself.
+agents — inherits it**. Ask the agent to populate the environment as needs
+surface, or do it yourself (`devbox add <pkg>`, plus
+`--config "$(repo-env path)"` in overlay mode).
 
 ### Launch a persistent agent session
 
@@ -71,11 +76,13 @@ From a tmux session on the dev machine, inside the repo:
   steerable from [claude.ai/code](https://claude.ai/code), the mobile app,
   or the desktop app ([docs](https://code.claude.com/docs/en/remote-control)).
   Headless variant: `claude remote-control`.
-- **Codex:** `codex` in the tmux pane, reattach over SSH to steer it.
-  ChatGPT-app remote control currently pairs only with a **macOS** Codex
-  desktop host, not a Linux CLI session
-  ([remote connections](https://developers.openai.com/codex/remote-connections)),
-  so tmux-over-SSH remains the Linux answer.
+- **Codex:** run `codex remote-control start` then `codex remote-control
+  pair` once on the dev machine — a daemon that pairs with the ChatGPT
+  mobile/desktop app and surfaces the machine's codex sessions there,
+  independent of your laptop. (The desktop app's *Settings → Connections →
+  SSH* feature is different: your laptop SSHes to the dev machine and
+  proxies it, so it stops working when the laptop sleeps.) Lowest-tech
+  fallback: `codex` inside tmux, reattach over SSH from any device.
 - **Containerized agents:** the
   [opencode-docker-glibc](https://github.com/gabrielgrant/opencode-docker-glibc)
   `*-project` scripts still work as before; container envs come from the

@@ -5,11 +5,20 @@ description: Sets up and uses per-repo development environments on a managed dev
 
 # Using project environments
 
-Third-party repos get a **personal overlay**: env config stored centrally
-in `$SERVER_CONFIG_DIR/environments/<host>/<owner>/<repo>/`, activated by a
-repo-local `.envrc` that is excluded via `.git/info/exclude` (never
-committed, never in `.gitignore` — that file is upstream's). Repos you
-control declare their environment in-repo instead.
+Two modes, chosen by ownership:
+
+- **In-repo** (repos you control, and the default for new projects with no
+  origin remote): committable `devbox.json` + `.envrc` in the repo itself.
+  Works out of the box on any machine, nothing to migrate later.
+- **Overlay** (third-party repos, the default when an origin exists): env
+  config stored centrally in
+  `$SERVER_CONFIG_DIR/environments/<host>/<owner>/<repo>/`, activated by a
+  repo-local `.envrc` excluded via `.git/info/exclude` (never committed,
+  never in `.gitignore` — that file is upstream's).
+
+`repo-env setup` picks the default from the remote; override with
+`--in-repo` / `--overlay`. For a repo you control that already has an
+origin, prefer `--in-repo`.
 
 The `repo-env` tool (Rust, in this repo under `tools/repo-env/`) automates
 the mapping; install once with
@@ -18,20 +27,19 @@ the mapping; install once with
 ## Entering a repo for the first time
 
 ```bash
-cd ~/repos/some-project     # must be a git repo (git init for new projects)
-repo-env setup        # key = origin remote, or local/<dirname> when no
-                      # origin yet; creates the overlay dir (+ empty
-                      # devbox.json), writes ignored .envrc, direnv allow
-devbox add <pkgs> --config "$(repo-env path)"   # add what the project needs
-git -C "$SERVER_CONFIG_DIR" add -A && git -C "$SERVER_CONFIG_DIR" commit -m "env: some-project"
+cd ~/repos/some-project
+repo-env setup        # offers git init if needed (--git-init to skip the
+                      # prompt); then in-repo or overlay per the rules above
+# in-repo:  devbox add <pkgs>            then commit devbox.json/.lock + .envrc
+# overlay:  devbox add <pkgs> --config "$(repo-env path)"
+#           then commit $SERVER_CONFIG_DIR
 ```
 
-After that, `cd` into the repo auto-activates (direnv hook). When an
-origin remote is added to a `local/*` project later, `repo-env doctor`
-flags the key mismatch: move the overlay dir to the new key, delete
-`.envrc`, rerun `repo-env setup`. Without repo-env, the manual equivalent
-is an `.envrc` containing `use_personal_devbox <host>/<owner>/<repo>`
-(helper installed by setting-up-dev-machine).
+After that, `cd` into the repo auto-activates (direnv hook). `repo-env
+doctor` verifies a checkout, including a stale overlay key after a remote
+change. Without repo-env, the manual overlay equivalent is an `.envrc`
+containing `use_personal_devbox <host>/<owner>/<repo>` (helper installed
+by setting-up-dev-machine).
 
 ## Runtime version authority
 

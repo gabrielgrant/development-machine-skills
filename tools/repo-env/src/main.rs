@@ -12,13 +12,19 @@ use std::path::PathBuf;
 use std::process::{exit, Command};
 
 const USAGE: &str = "\
-repo-env — personal per-repo dev environments
+repo-env — per-repo dev environments
 
 USAGE:
     repo-env key            print the overlay key for this checkout (host/owner/repo)
     repo-env path           print the overlay directory path
     repo-env init           create the overlay directory (with empty devbox.json) if missing
-    repo-env setup          init + write git-ignored .envrc + direnv allow
+    repo-env setup [FLAGS]  set up environment activation for this checkout
+        --in-repo           committable devbox.json + .envrc in the repo
+                            (default when there is no origin remote — your project)
+        --overlay           config outside the repo, .envrc git-ignored
+                            (default when an origin remote exists — third-party)
+        --git-init          run `git init -b main` first if not a git repo
+                            (otherwise setup offers to when run interactively)
     repo-env exec CMD...    run CMD inside the environment (direnv exec at the git root)
     repo-env doctor         check that all required pieces are in place
 
@@ -32,7 +38,7 @@ fn main() {
         Some("key") => cmd_key(),
         Some("path") => cmd_path(),
         Some("init") => cmd_init(),
-        Some("setup") => cmd_setup(),
+        Some("setup") => cmd_setup(&args[1..]),
         Some("exec") => cmd_exec(&args[1..]),
         Some("doctor") => cmd_doctor(),
         Some("-h") | Some("--help") | None => {
@@ -197,49 +203,111 @@ fn cmd_init() -> Result<(), String> {
     Ok(())
 }
 
-fn cmd_setup() -> Result<(), String> {
-    cmd_init()?;
-    let root = git_root()?;
-    let key = overlay_key()?;
+fn nvmrc_block(root: &std::path::Path) -> &'static str {
+    if root.join(".nvmrc").exists() {
+        "\n# Upstream .nvmrc is the Node authority here.\n\
+         export NVM_DIR=\"$HOME/.nvm\"\n\
+         if [ -s \"$NVM_DIR/nvm.sh\" ]; then\n\
+         \x20   . \"$NVM_DIR/nvm.sh\"\n\
+         \x20   nvm use --silent\n\
+         fi\n"
+    } else {
+        ""
+    }
+}
 
-    // 1. .envrc (only if absent — never clobber a hand-edited one)
-    let envrc = root.join(".envrc");
+fn write_envrc(envrc: &std::path::Path, content: String) -> Result<(), String> {
+    // Only if absent — never clobber a hand-edited one.
     if !envrc.exists() {
-        let mut content = format!("use_personal_devbox {key}\n");
-        if root.join(".nvmrc").exists() {
-            content.push_str(
-                "\n# Upstream .nvmrc is the Node authority here.\n\
-                 export NVM_DIR=\"$HOME/.nvm\"\n\
-                 if [ -s \"$NVM_DIR/nvm.sh\" ]; then\n\
-                 \x20   . \"$NVM_DIR/nvm.sh\"\n\
-                 \x20   nvm use --silent\n\
-                 fi\n",
-            );
-        }
-        fs::write(&envrc, content).map_err(|e| format!("write .envrc: {e}"))?;
+        fs::write(envrc, content).map_err(|e| format!("write .envrc: {e}"))?;
         println!("created {}", envrc.display());
     } else {
         println!("exists  {}", envrc.display());
     }
+    Ok(())
+}
 
-    // 2. exclude .envrc locally (never touch upstream's .gitignore)
-    let exclude = root.join(".git/info/exclude");
-    let existing = fs::read_to_string(&exclude).unwrap_or_default();
-    if !existing.lines().any(|l| l.trim() == "/.envrc") {
-        if let Some(parent) = exclude.parent() {
-            fs::create_dir_all(parent).map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
+fn ensure_git_repo(git_init: bool) -> Result<(), String> {
+    use std::io::IsTerminal;
+    if git_root().is_ok() {
+        return Ok(());
+    }
+    let consent = git_init || {
+        if std::io::stdin().is_terminal() {
+            eprint!("Not a git repository. Run `git init -b main` here? [y/N] ");
+            let mut line = String::new();
+            std::io::stdin().read_line(&mut line).ok();
+            matches!(line.trim(), "y" | "Y" | "yes")
+        } else {
+            false
         }
-        let mut f = fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&exclude)
-            .map_err(|e| format!("open {}: {e}", exclude.display()))?;
-        let sep = if existing.is_empty() || existing.ends_with('\n') { "" } else { "\n" };
-        writeln!(f, "{sep}/.envrc").map_err(|e| format!("write exclude: {e}"))?;
-        println!("excluded .envrc via .git/info/exclude");
+    };
+    if !consent {
+        return Err(
+            "not a git repository — rerun with --git-init (or run `git init` yourself)".into(),
+        );
+    }
+    git(&["init", "-b", "main"]).map(|_| println!("initialized git repository"))
+}
+
+fn cmd_setup(args: &[String]) -> Result<(), String> {
+    let mut in_repo = None;
+    let mut git_init = false;
+    for a in args {
+        match a.as_str() {
+            "--in-repo" => in_repo = Some(true),
+            "--overlay" => in_repo = Some(false),
+            "--git-init" => git_init = true,
+            other => return Err(format!("unknown setup flag: {other}")),
+        }
     }
 
-    // 3. direnv allow
+    ensure_git_repo(git_init)?;
+    let root = git_root()?;
+    let has_origin = git(&["remote", "get-url", "origin"]).is_ok();
+    // Your own fresh project → commit the config; third-party → overlay.
+    let in_repo = in_repo.unwrap_or(!has_origin);
+    let envrc = root.join(".envrc");
+
+    if in_repo {
+        let devbox = root.join("devbox.json");
+        if !devbox.exists() {
+            fs::write(&devbox, "{\n  \"packages\": []\n}\n")
+                .map_err(|e| format!("write {}: {e}", devbox.display()))?;
+            println!("created {}", devbox.display());
+        }
+        write_envrc(
+            &envrc,
+            format!(
+                "eval \"$(devbox generate direnv --print-envrc)\"\n{}",
+                nvmrc_block(&root)
+            ),
+        )?;
+        println!("in-repo mode: commit devbox.json, devbox.lock and .envrc to the repo.");
+    } else {
+        cmd_init()?;
+        let key = overlay_key()?;
+        write_envrc(&envrc, format!("use_personal_devbox {key}\n{}", nvmrc_block(&root)))?;
+
+        // Exclude .envrc locally (never touch upstream's .gitignore).
+        let exclude = root.join(".git/info/exclude");
+        let existing = fs::read_to_string(&exclude).unwrap_or_default();
+        if !existing.lines().any(|l| l.trim() == "/.envrc") {
+            if let Some(parent) = exclude.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
+            }
+            let mut f = fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&exclude)
+                .map_err(|e| format!("open {}: {e}", exclude.display()))?;
+            let sep = if existing.is_empty() || existing.ends_with('\n') { "" } else { "\n" };
+            writeln!(f, "{sep}/.envrc").map_err(|e| format!("write exclude: {e}"))?;
+            println!("excluded .envrc via .git/info/exclude");
+        }
+    }
+
     run_status("direnv", &["allow", root.to_str().unwrap_or(".")])?;
     println!("direnv allowed. cd into the repo (or `repo-env exec`) to activate.");
     Ok(())
@@ -282,43 +350,47 @@ fn cmd_doctor() -> Result<(), String> {
         &format!("expected {}", cfg.display()),
     );
 
-    match overlay_dir() {
-        Ok(dir) => {
-            let devbox_json = dir.join("devbox.json");
-            check(
-                "overlay for this repo",
-                devbox_json.exists(),
-                "run repo-env setup",
-            );
-            if let Ok(root) = git_root() {
-                let envrc = root.join(".envrc");
+    match git_root() {
+        Ok(root) => {
+            let envrc = root.join(".envrc");
+            check(".envrc in checkout", envrc.exists(), "run repo-env setup");
+            let contents = fs::read_to_string(&envrc).unwrap_or_default();
+            if let Some(ek) = contents
+                .lines()
+                .find_map(|l| l.trim().strip_prefix("use_personal_devbox "))
+                .map(str::trim)
+            {
+                // Overlay mode.
+                let key = overlay_key()?;
                 check(
-                    ".envrc in checkout",
-                    envrc.exists(),
-                    "run repo-env setup",
+                    "overlay for this repo",
+                    server_config_dir()
+                        .join("environments")
+                        .join(ek)
+                        .join("devbox.json")
+                        .exists(),
+                    "run repo-env setup (or repo-env init)",
                 );
                 // Stale key: .envrc written before an origin remote existed
                 // (or the remote moved) no longer matches the derived key.
-                if let (Ok(contents), Ok(key)) = (fs::read_to_string(&envrc), overlay_key()) {
-                    let envrc_key = contents
-                        .lines()
-                        .find_map(|l| l.trim().strip_prefix("use_personal_devbox "))
-                        .map(str::trim);
-                    if let Some(ek) = envrc_key {
-                        check(
-                            ".envrc key matches repo",
-                            ek == key,
-                            &format!(
-                                "envrc uses `{ek}`, repo now derives `{key}` — \
-                                 move the overlay dir and rerun repo-env setup after \
-                                 deleting .envrc"
-                            ),
-                        );
-                    }
-                }
+                check(
+                    ".envrc key matches repo",
+                    ek == key,
+                    &format!(
+                        "envrc uses `{ek}`, repo now derives `{key}` — \
+                         move the overlay dir, delete .envrc, rerun repo-env setup"
+                    ),
+                );
+            } else if contents.contains("devbox generate direnv") {
+                // In-repo mode.
+                check(
+                    "devbox.json in repo (in-repo mode)",
+                    root.join("devbox.json").exists(),
+                    "run repo-env setup --in-repo",
+                );
             }
         }
-        Err(e) => println!("note: not in a repo with an origin remote ({e})"),
+        Err(e) => println!("note: not in a git repository ({e})"),
     }
 
     if ok {
