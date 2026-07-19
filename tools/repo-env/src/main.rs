@@ -116,10 +116,32 @@ fn normalize_remote(url: &str) -> Result<String, String> {
     Ok(key)
 }
 
+/// Overlay key: `host/owner/repo` from the origin remote when present;
+/// `local/<dirname>` for a git repo with no origin (new project not yet
+/// pushed anywhere). Not being in a git repo at all is an error.
 fn overlay_key() -> Result<String, String> {
-    let url = git(&["remote", "get-url", "origin"])
-        .map_err(|e| format!("{e}\n(hint: repo-env needs an 'origin' remote to derive the overlay key)"))?;
-    normalize_remote(&url)
+    let root = git_root().map_err(|_| {
+        "not inside a git repository — run `git init` first \
+         (repo-env keys the overlay off the repo: origin remote when \
+         present, directory name otherwise)"
+            .to_string()
+    })?;
+    match git(&["remote", "get-url", "origin"]) {
+        Ok(url) => normalize_remote(&url),
+        Err(_) => {
+            let name = root
+                .file_name()
+                .and_then(|n| n.to_str())
+                .ok_or_else(|| format!("cannot derive a name from {}", root.display()))?
+                .to_lowercase();
+            eprintln!(
+                "note: no origin remote; using local overlay key `local/{name}`. \
+                 When you add an origin, `repo-env doctor` will flag the mismatch \
+                 and you can move the overlay dir."
+            );
+            Ok(format!("local/{name}"))
+        }
+    }
 }
 
 fn overlay_dir() -> Result<PathBuf, String> {
@@ -269,11 +291,31 @@ fn cmd_doctor() -> Result<(), String> {
                 "run repo-env setup",
             );
             if let Ok(root) = git_root() {
+                let envrc = root.join(".envrc");
                 check(
                     ".envrc in checkout",
-                    root.join(".envrc").exists(),
+                    envrc.exists(),
                     "run repo-env setup",
                 );
+                // Stale key: .envrc written before an origin remote existed
+                // (or the remote moved) no longer matches the derived key.
+                if let (Ok(contents), Ok(key)) = (fs::read_to_string(&envrc), overlay_key()) {
+                    let envrc_key = contents
+                        .lines()
+                        .find_map(|l| l.trim().strip_prefix("use_personal_devbox "))
+                        .map(str::trim);
+                    if let Some(ek) = envrc_key {
+                        check(
+                            ".envrc key matches repo",
+                            ek == key,
+                            &format!(
+                                "envrc uses `{ek}`, repo now derives `{key}` — \
+                                 move the overlay dir and rerun repo-env setup after \
+                                 deleting .envrc"
+                            ),
+                        );
+                    }
+                }
             }
         }
         Err(e) => println!("note: not in a repo with an origin remote ({e})"),

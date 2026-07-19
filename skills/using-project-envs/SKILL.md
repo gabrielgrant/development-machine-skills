@@ -18,18 +18,20 @@ the mapping; install once with
 ## Entering a repo for the first time
 
 ```bash
-cd ~/repos/some-project
-repo-env setup        # derives key from `git remote get-url origin`,
-                      # creates the overlay dir (+ empty devbox.json) if
-                      # missing, writes ignored .envrc, runs direnv allow
+cd ~/repos/some-project     # must be a git repo (git init for new projects)
+repo-env setup        # key = origin remote, or local/<dirname> when no
+                      # origin yet; creates the overlay dir (+ empty
+                      # devbox.json), writes ignored .envrc, direnv allow
 devbox add <pkgs> --config "$(repo-env path)"   # add what the project needs
 git -C "$SERVER_CONFIG_DIR" add -A && git -C "$SERVER_CONFIG_DIR" commit -m "env: some-project"
 ```
 
-After that, `cd` into the repo auto-activates (direnv hook). Without
-repo-env, the manual equivalent is an `.envrc` containing
-`use_personal_devbox <host>/<owner>/<repo>` (helper installed by
-setting-up-dev-machine).
+After that, `cd` into the repo auto-activates (direnv hook). When an
+origin remote is added to a `local/*` project later, `repo-env doctor`
+flags the key mismatch: move the overlay dir to the new key, delete
+`.envrc`, rerun `repo-env setup`. Without repo-env, the manual equivalent
+is an `.envrc` containing `use_personal_devbox <host>/<owner>/<repo>`
+(helper installed by setting-up-dev-machine).
 
 ## Runtime version authority
 
@@ -45,16 +47,24 @@ One authority per runtime — never two declarations:
 
 ## Launching agents / non-interactive commands
 
-direnv's hook only fires around interactive prompts. Anything launched by
-systemd, an editor, a portal, or another agent must go through:
+An interactive shell that has `cd`-ed into the repo has the environment,
+and **every child process inherits it** — launching `claude` or `codex`
+from a repo shell (e.g. inside tmux, with `claude --remote-control` for
+remote steering) needs nothing special.
+
+direnv's hook only fires around interactive prompts, so anything that
+*bypasses* an interactive repo shell — systemd units, an agent portal,
+editor tasks, cron, or a command run from outside the repo — must go
+through:
 
 ```bash
 repo-env exec claude          # = direnv exec <git-root> claude
 repo-env exec npm test
 ```
 
-Never assume an agent inherited the environment just because it runs in
-the repo directory.
+The test is "did this process's ancestry pass through an interactive
+shell prompt inside the repo?" — if unsure, `repo-env exec` is always
+correct (direnv makes it a no-op when the env is already loaded).
 
 ## Devbox overlay vs Dev Container
 

@@ -4,17 +4,20 @@ Agent skills that codify how to manage a development machine (an Ubuntu dev
 server/VM used for coding agents and project work) as a set of versioned,
 reproducible layers instead of an opaque "pet" server.
 
+The division of labor: **you** start sessions and make judgment calls;
+**agents** (following these skills) do the machine chores — setup,
+migration, tool installs, drift cleanup. The human surface area is
+deliberately small.
+
 ## Install
 
-Compatible with [vercel-labs/skills](https://github.com/vercel-labs/skills):
+Skills (compatible with [vercel-labs/skills](https://github.com/vercel-labs/skills)):
 
 ```bash
 npx skills add gabrielgrant/development-machine-skills
-# or a single skill:
-npx skills add gabrielgrant/development-machine-skills --skill migrating-dev-machine
 ```
 
-Also install the bundled CLI on the dev machine itself:
+The `repo-env` CLI, on the dev machine:
 
 ```bash
 cargo install --git https://github.com/gabrielgrant/development-machine-skills repo-env
@@ -37,110 +40,93 @@ owner is drift, and the tooling exists to find it and file it.
 
 `~/server-config` is one private git repo; every deliberate machine change
 is a commit there. Shell config stays in `$HOME`: `.bashrc`/`.profile` get
-one marker-guarded block that sources numbered snippets from
+one marker-guarded block sourcing numbered snippets from
 `~/.config/shell/{bashrc.d,profile.d}/` — installers never own lines in the
 core files.
 
-## Day-to-day workflows
+## What you do yourself
 
-These are the things you (or an agent following the skills) actually type.
-
-### Set up a fresh machine
+### Start work on a project
 
 ```bash
-bash skills/setting-up-dev-machine/scripts/apply.sh   # bootstrap + converge
+cd ~/repos
+git clone git@github.com:someorg/proj.git proj   # existing project
+mkdir proj && cd proj && git init                # or brand-new (no GitHub repo needed:
+                                                 # repo-env keys new projects as local/<dirname>)
+cd ~/repos/proj
+repo-env setup     # once per checkout; creates the env overlay + .envrc
 ```
 
-Then follow the rest of the **setting-up-dev-machine** skill (chezmoi
-wiring, devbox global profile). From then on the machine's converge tool is
-`~/server-config/host/apply.sh`; rerunning it is always safe and a clean
-run means "machine matches the config".
+From then on, `cd`-ing into the repo activates its environment
+automatically, and **anything you launch from that shell — including
+agents — inherits it**. Ask the agent to populate the environment
+(`devbox add ... --config "$(repo-env path)"`) as needs surface, or do it
+yourself.
 
-### Start working on a project
+### Launch a persistent agent session
+
+From a tmux session on the dev machine, inside the repo:
+
+- **Claude:** `claude --remote-control` — interactive locally *and*
+  steerable from [claude.ai/code](https://claude.ai/code), the mobile app,
+  or the desktop app ([docs](https://code.claude.com/docs/en/remote-control)).
+  Headless variant: `claude remote-control`.
+- **Codex:** `codex` in the tmux pane, reattach over SSH to steer it.
+  ChatGPT-app remote control currently pairs only with a **macOS** Codex
+  desktop host, not a Linux CLI session
+  ([remote connections](https://developers.openai.com/codex/remote-connections)),
+  so tmux-over-SSH remains the Linux answer.
+- **Containerized agents:** the
+  [opencode-docker-glibc](https://github.com/gabrielgrant/opencode-docker-glibc)
+  `*-project` scripts still work as before; container envs come from the
+  image, not the host overlay.
+
+tmux is what makes the session survive your laptop disconnecting; the
+remote-control layer is what lets you steer it from anywhere.
+
+`repo-env exec <cmd>` exists for launches that *don't* pass through an
+interactive shell in the repo — systemd units, the agent portal, editor
+tasks, cron — which mostly means it appears inside automation, not your
+typing.
+
+### Delegate everything else
+
+Machine chores are agent work — point an agent with these skills at the
+box (running on it, or from any machine with SSH access to it, which is
+also how you bootstrap a machine that has no agent yet):
+
+- "Set up this fresh server as my dev machine" → [setting-up-dev-machine](skills/setting-up-dev-machine/SKILL.md)
+- "Migrate my old dev box onto this new server" → [migrating-dev-machine](skills/migrating-dev-machine/SKILL.md)
+- "Install X on this machine" → [installing-dev-tools](skills/installing-dev-tools/SKILL.md) (picks the right layer, keeps it recorded)
+- "Something added junk to my .bashrc, clean it up" → [normalizing-dotfiles](skills/normalizing-dotfiles/SKILL.md)
+- "Is everything on this machine tracked?" → [auditing-dev-machine](skills/auditing-dev-machine/SKILL.md)
+
+### The three commands worth memorizing
 
 ```bash
-git clone git@github.com:someorg/proj.git ~/repos/proj && cd ~/repos/proj
-repo-env setup            # creates a personal env overlay keyed to the
-                          # git remote, plus a git-ignored .envrc
-devbox add nodejs@24 --config "$(repo-env path)"   # whatever it needs
+repo-env setup                         # new checkout → managed environment
+~/server-config/host/apply.sh          # converge machine to config (always safe)
+~/server-config/host/machine-audit.sh  # is anything untracked?
 ```
 
-After `setup`, just `cd`-ing into the repo activates the environment
-(direnv). The overlay lives in `~/server-config/environments/`, so nothing
-is committed to the upstream repo — commit the overlay to server-config
-instead. If the project declares its own runtime (`.nvmrc`,
-`rust-toolchain.toml`, its own `devbox.json`), that declaration wins; don't
-duplicate it in the overlay. Details: **using-project-envs**.
+## The skills (agent-facing)
 
-### Launch an agent (or anything non-interactive) in a project
-
-```bash
-repo-env exec claude      # = direnv exec <git-root> claude
-repo-env exec npm test
-```
-
-Needed because direnv's automatic activation only fires in interactive
-shells — editors, systemd, portals, and agent launchers bypass it.
-
-### Install a tool
-
-Decide the layer first (cheatsheet; full ladder in **installing-dev-tools**):
-
-```bash
-# machine infrastructure (docker, tmux):
-echo <pkg> >> ~/server-config/host/apt-packages.txt && ~/server-config/host/apply.sh
-# everyday CLI tool (rg, jq, gh):
-devbox global add <pkg> && devbox global install
-# needed by one project:
-devbox add <pkg> --config "$(repo-env path)"
-```
-
-For `curl | bash`-only tools: point the installer at a snippet
-(`PROFILE=~/.config/shell/bashrc.d/20-<tool>.sh`) or diff your dotfiles
-after and normalize (**normalizing-dotfiles**). Then commit to
-server-config with provenance.
-
-### When an installer scribbled on .bashrc
-
-`chezmoi diff` shows it. Triage each change — accept, move into a numbered
-snippet, or delete — per **normalizing-dotfiles**. Goal state: core
-dotfiles are distro-default + one loader block, forever.
-
-### Check the machine is fully captured
-
-```bash
-~/server-config/host/machine-audit.sh
-```
-
-Clean output = everything is owned. Findings map to a remediation skill
-(**auditing-dev-machine**). Run after ad-hoc work sessions, before
-migrations/backups, or monthly.
-
-### Migrate / rebuild / restore
-
-**migrating-dev-machine** covers both adopting this pattern on an existing
-machine and moving old server → new server (inventory → staged copy →
-three-way merge → selective reinstall → cutover). **backing-up-dev-machine**
-lists what to back up vs rebuild; a restore is "run setup, restore state,
-reinstall runtimes".
-
-## Skills
-
-- **managing-dev-machine** — router: the layer model, conventions, and which skill to use when
-- **setting-up-dev-machine** — bootstrap a fresh machine into the pattern
-- **migrating-dev-machine** — adopt the pattern in place, or migrate an old server to a new one
-- **installing-dev-tools** — decide where a new tool belongs and install it reproducibly
-- **normalizing-dotfiles** — triage installer-written dotfile changes (accept / reorganize / reject)
-- **using-project-envs** — per-repo environments for repos you don't control
-- **auditing-dev-machine** — detect drift between managed config and reality
-- **backing-up-dev-machine** — what to back up vs rebuild
+- [managing-dev-machine](skills/managing-dev-machine/SKILL.md) — router: layer model, conventions, which skill when
+- [setting-up-dev-machine](skills/setting-up-dev-machine/SKILL.md) — bootstrap a fresh machine
+- [migrating-dev-machine](skills/migrating-dev-machine/SKILL.md) — in-place adoption or old→new server migration
+- [installing-dev-tools](skills/installing-dev-tools/SKILL.md) — where a tool belongs + reproducible install
+- [normalizing-dotfiles](skills/normalizing-dotfiles/SKILL.md) — triage installer-written dotfile changes
+- [using-project-envs](skills/using-project-envs/SKILL.md) — per-repo environments, activation, agent launches
+- [auditing-dev-machine](skills/auditing-dev-machine/SKILL.md) — drift detection
+- [backing-up-dev-machine](skills/backing-up-dev-machine/SKILL.md) — back up vs rebuild
 
 ## Tools
 
-- `tools/repo-env/` — Rust CLI that maps a checkout's git remote to a
-  personal environment overlay: `setup` (create overlay + ignored `.envrc`),
-  `exec` (run a command inside the env), `path`/`key`/`init`/`doctor`.
-- Bash scripts bundled inside the skills that use them (`skills/*/scripts/`):
-  `apply.sh` (host converge), `machine-audit.sh` (drift),
-  `machine-inventory.sh` (full capture), `home-conflicts.sh` (migration
-  comparison).
+- [tools/repo-env](tools/repo-env/) — Rust CLI mapping a checkout's git
+  identity (origin remote, or `local/<dirname>` before one exists) to its
+  environment overlay: `setup`, `exec`, `path`, `key`, `init`, `doctor`.
+- Bash scripts bundled inside the skills that use them:
+  [apply.sh](skills/setting-up-dev-machine/scripts/apply.sh) (host converge),
+  [machine-audit.sh](skills/auditing-dev-machine/scripts/machine-audit.sh) (drift),
+  [machine-inventory.sh](skills/migrating-dev-machine/scripts/machine-inventory.sh) (full capture),
+  [home-conflicts.sh](skills/migrating-dev-machine/scripts/home-conflicts.sh) (migration comparison).
