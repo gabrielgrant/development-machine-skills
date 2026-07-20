@@ -89,6 +89,13 @@ differ, don't use `--numeric-ids` — fix ownership on the destination after).
 
 13. Test first: `systemctl --failed`, every repo's `git status`/`remote -v`,
     agent startup, builds, compose projects, second SSH session.
+    Expect OAuth-based tools (claude, codex, sometimes gh) to demand one
+    interactive re-login on the new machine even though their credential
+    files transferred — refresh tokens are rotated server-side and a
+    copied token pair is often rejected. Config/history/projects still
+    carry over; a 401 on first use is normal, not a migration failure.
+    Anything paired to the machine (e.g. `codex remote-control pair`)
+    must be re-paired.
 14. Stop old-server agents/containers/shells, then final sync into
     **staging** (safe to `--delete` there), re-run home-conflicts against
     the live home, and apply with a protect list:
