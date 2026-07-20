@@ -108,6 +108,16 @@ also how you bootstrap a machine that has no agent yet):
 - "Something added junk to my .bashrc, clean it up" → [normalizing-dotfiles](skills/normalizing-dotfiles/SKILL.md)
 - "Is everything on this machine tracked?" → [auditing-dev-machine](skills/auditing-dev-machine/SKILL.md)
 
+### What needs no procedure at all
+
+Logins/re-auth (`claude /login`, `gh auth login`) and self-updates of
+already-installed tools (`claude update`, `rustup update`, `devbox global
+update`) touch only tool-owned state — nothing to record or commit.
+server-config records how a tool is *installed*, not which build it's on.
+If an updater ever oversteps into a dotfile, `chezmoi diff` and the audit
+catch it; you don't need to check proactively. New installs and `apt
+install` are the things that do need recording (see above).
+
 ### The three commands worth memorizing
 
 ```bash
