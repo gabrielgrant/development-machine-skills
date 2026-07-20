@@ -53,6 +53,22 @@ Try each level; stop at the first that works.
 
 Never install tools from a devbox `init_hook` (runs every shell entry).
 
+## Agent skills and global agent config
+
+Skill packs (`npx skills add owner/repo`) are deliberate config, not
+tool-owned state: record each source repo, one per line, in
+`$SERVER_CONFIG_DIR/agent-skills.txt` and reinstall with
+
+```bash
+xargs -n1 npx -y skills add -y < "$SERVER_CONFIG_DIR/agent-skills.txt"
+```
+
+(idempotent — rerunning converges). Do not vendor installed skill copies
+into chezmoi. Hand-edited global agent config (`~/.claude/CLAUDE.md`,
+`~/.claude/settings.json`) is ordinary dotfile territory: `chezmoi add`
+it. Session state and credentials under `~/.claude`/`~/.codex` stay
+unmanaged (backups only).
+
 ## After any install
 
 1. Fresh login shell: `command -v <tool>` works.

@@ -115,8 +115,11 @@ already-installed tools (`claude update`, `rustup update`, `devbox global
 update`) touch only tool-owned state — nothing to record or commit.
 server-config records how a tool is *installed*, not which build it's on.
 If an updater ever oversteps into a dotfile, `chezmoi diff` and the audit
-catch it; you don't need to check proactively. New installs and `apt
-install` are the things that do need recording (see above).
+catch it; you don't need to check proactively. The things that do need
+recording: new installs, `apt install` (see above), and installing skill
+packs — add the repo to `~/server-config/agent-skills.txt` alongside
+`npx skills add` so a rebuild restores them (hand-edited global agent
+config like `~/.claude/CLAUDE.md` is chezmoi territory, like any dotfile).
 
 ### The three commands worth memorizing
 
