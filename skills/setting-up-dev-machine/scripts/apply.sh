@@ -160,16 +160,17 @@ case ":$PATH:" in
   *) PATH="$HOME/.local/bin:$PATH"; export PATH ;;
 esac
 EOF
-done
 
-write_if_absent "$SHELL_DIR/bashrc.d/40-devbox-global.sh" <<'EOF'
+    write_if_absent "$SHELL_DIR/$dir/40-devbox-global.sh" <<'EOF'
 # Devbox Global: expose globally-managed CLI tools in every shell.
 # Plain shellenv (no --init-hook): hook scripts don't exist until a global
 # profile is created, and global profiles rarely need init hooks anyway.
+# Devbox's path stack makes the second eval (login+interactive) a no-op.
 if command -v devbox >/dev/null 2>&1; then
     eval "$(devbox global shellenv 2>/dev/null)"
 fi
 EOF
+done
 
 # direnv hook must run late (after prompt-manipulating extensions).
 write_if_absent "$SHELL_DIR/bashrc.d/90-direnv.sh" <<'EOF'

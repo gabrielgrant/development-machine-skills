@@ -74,4 +74,11 @@ unmanaged (backups only).
 1. Fresh login shell: `command -v <tool>` works.
 2. `chezmoi diff` clean (or triaged via normalizing-dotfiles).
 3. Rerun of the install step is a no-op.
-4. Commit with provenance: method, version, reason.
+4. If Devbox Global changed, sync the tracked copy — `devbox global
+   add` edits only the live config, so the repo silently desyncs
+   otherwise:
+   ```bash
+   cp ~/.local/share/devbox/global/default/devbox.{json,lock} \
+      "$SERVER_CONFIG_DIR/devbox-global/"
+   ```
+5. Commit with provenance: method, version, reason.

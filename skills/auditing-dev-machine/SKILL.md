@@ -26,6 +26,7 @@ Sections and what to do per finding:
 | unmanaged binaries | files in `~/.local/bin` etc. with no recorded install | installing-dev-tools ladder |
 | failed units / timers | broken services | fix or remove the unit |
 | stale .envrc | repos with `.envrc` but missing overlay (or vice versa) | `repo-env setup` / delete |
+| devbox global | live global config differs from (or missing in) `devbox-global/` tracked copy | copy `devbox.json` + `devbox.lock` into the repo and commit, or `devbox global rm` the ad-hoc addition |
 
 For deeper point-in-time capture (e.g. pre-migration), use
 migrating-dev-machine's `machine-inventory.sh` instead — the audit is a

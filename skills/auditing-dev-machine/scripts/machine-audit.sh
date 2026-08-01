@@ -81,6 +81,25 @@ if [ -d "$HOME/repos" ]; then
 fi
 echo "(done)"
 
+section "DEVBOX GLOBAL (live config vs tracked copy)"
+DBG_LIVE="$HOME/.local/share/devbox/global/default"
+DBG_TRACKED="$SERVER_CONFIG_DIR/devbox-global"
+if ! have devbox; then
+    echo "devbox not installed"
+elif [ ! -f "$DBG_TRACKED/devbox.json" ]; then
+    echo "untracked: no $DBG_TRACKED/devbox.json — copy the live config in and commit"
+else
+    dbg_drift=0
+    for f in devbox.json devbox.lock; do
+        if ! diff -q "$DBG_LIVE/$f" "$DBG_TRACKED/$f" >/dev/null 2>&1; then
+            echo "drift: $f differs from tracked copy"
+            diff -u "$DBG_TRACKED/$f" "$DBG_LIVE/$f" 2>&1 | head -n 20
+            dbg_drift=1
+        fi
+    done
+    [ "$dbg_drift" -eq 0 ] && echo "clean"
+fi
+
 section "SERVER-CONFIG REPO"
 if [ -d "$SERVER_CONFIG_DIR/.git" ]; then
     git -C "$SERVER_CONFIG_DIR" status --short --branch | head -n 30

@@ -54,9 +54,11 @@ Docker, ssh, tmux, build prerequisites — not language runtimes.
 **5. Devbox Global.** `devbox global add ripgrep jq fd fzf bat gh just
 shellcheck` (adjust to taste), then `devbox global install` — from a
 not-yet-activated shell, `add` records packages without materializing the
-nix profile, so `install` ensures the binaries actually exist. Symlink or
-copy the resulting global `devbox.json` into
-`$SERVER_CONFIG_DIR/devbox-global/` and commit.
+nix profile, so `install` ensures the binaries actually exist. Copy the resulting
+global `devbox.json` **and** `devbox.lock` into
+`$SERVER_CONFIG_DIR/devbox-global/` and commit (the lock is what makes
+restore reproducible); the audit's devbox-global section diffs live
+against tracked, so later `devbox global add`s can't silently desync.
 
 **6. Verify.** Open a **new login shell** and check:
 `command -v devbox direnv chezmoi rg` all resolve; `chezmoi diff` is clean;
