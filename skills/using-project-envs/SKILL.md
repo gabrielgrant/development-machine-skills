@@ -37,7 +37,9 @@ repo-env setup        # offers git init if needed (--git-init to skip the
 
 After that, `cd` into the repo auto-activates (direnv hook). `repo-env
 doctor` verifies a checkout, including a stale overlay key after a remote
-change. Without repo-env, the manual overlay equivalent is an `.envrc`
+change. If the repo should also host a persistent remote agent:
+`systemctl --user enable --now claude-rc@<repo>`
+(running-persistent-agents). Without repo-env, the manual overlay equivalent is an `.envrc`
 containing `use_personal_devbox <host>/<owner>/<repo>` (helper installed
 by setting-up-dev-machine).
 

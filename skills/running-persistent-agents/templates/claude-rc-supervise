@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Supervision wrapper for `claude remote-control` under systemd (or any
+# restart-on-exit supervisor).
+#
+# Not just `claude rc -c || claude rc`: --continue failing must be split
+# into "nothing to resume" (fall through to a fresh environment) and
+# "resumed fine, died later" (exit nonzero so the supervisor re-runs us
+# and --continue picks the same session back up — falling through here
+# would silently abandon the conversation --continue exists to save).
+# The two are distinguished by elapsed time: an immediate exit means the
+# pointer lookup failed; anything that ran >=10s was a live session.
+#
+# Extra args (e.g. --spawn=worktree) are passed only to the fresh start:
+# --continue reattaches to an existing environment, whose spawn mode is
+# already recorded per-project by Claude Code.
+set -uo pipefail
+
+DIR="${1:?usage: claude-rc-supervise <project-dir> [fresh-start args...]}"
+shift
+cd "$DIR"
+
+start=$SECONDS
+claude remote-control --continue
+status=$?
+[ "$status" -eq 0 ] && exit 0
+elapsed=$(( SECONDS - start ))
+
+if [ "$elapsed" -ge 10 ]; then
+  echo "[claude-rc] session ended after ${elapsed}s (status $status); exiting so the supervisor resumes it" >&2
+  exit "$status"
+fi
+
+echo "[claude-rc] --continue failed immediately (status $status); starting fresh remote-control" >&2
+exec claude remote-control "$@"

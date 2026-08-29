@@ -1,0 +1,32 @@
+# Persistent Claude Remote Control supervisor for one repo.
+#   Install:  ~/.config/systemd/user/claude-rc@.service
+#   Enable:   systemctl --user enable --now claude-rc@<repo>
+#             (%i is the directory name under ~/repos)
+#   Once:     loginctl enable-linger "$USER"   # keep running after logout/reboot
+#
+# Stop only via `systemctl --user stop` (SIGTERM): clean shutdown
+# preserves the server-side environment so the next start reconnects
+# existing claude.ai threads. SIGKILL forfeits that. Claude Code allows
+# stuck sessions a 30s internal shutdown grace, so TimeoutStopSec stays
+# above it.
+
+[Unit]
+Description=Claude Remote Control (%i)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+WorkingDirectory=%h/repos/%i
+# repo-env exec: project toolchain without an interactive direnv shell
+# (see using-project-envs). Drop it for repos with no managed env.
+ExecStart=%h/.local/bin/repo-env exec %h/.local/bin/claude-rc-supervise %h/repos/%i --spawn=worktree
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target

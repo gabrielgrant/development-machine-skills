@@ -70,12 +70,16 @@ surface, or do it yourself (`devbox add <pkg>`, plus
 
 ### Launch a persistent agent session
 
-From a tmux session on the dev machine, inside the repo:
+On the dev machine:
 
-- **Claude:** `claude --remote-control` — interactive locally *and*
-  steerable from [claude.ai/code](https://claude.ai/code), the mobile app,
-  or the desktop app ([docs](https://code.claude.com/docs/en/remote-control)).
-  Headless variant: `claude remote-control`.
+- **Claude:** the
+  [running-persistent-agents](skills/running-persistent-agents/SKILL.md)
+  skill — one systemd-supervised `claude remote-control` per repo.
+  Threads opened in [claude.ai/code](https://claude.ai/code) or the
+  mobile app each get their own worktree session on the machine and
+  survive crashes and reboots. For a session you also want to sit in
+  locally, run `claude --remote-control` in the repo, in tmux
+  ([docs](https://code.claude.com/docs/en/remote-control)).
 - **Codex:** run `codex remote-control start` then `codex remote-control
   pair` once on the dev machine — a daemon that pairs with the ChatGPT
   mobile/desktop app and surfaces the machine's codex sessions there,
@@ -88,8 +92,9 @@ From a tmux session on the dev machine, inside the repo:
   `*-project` scripts still work as before; container envs come from the
   image, not the host overlay.
 
-tmux is what makes the session survive your laptop disconnecting; the
-remote-control layer is what lets you steer it from anywhere.
+systemd is what keeps an agent alive and reconnecting; the
+remote-control layer is what lets you steer it from anywhere; tmux
+earns a place only in sessions you also sit in locally.
 
 `repo-env exec <cmd>` exists for launches that *don't* pass through an
 interactive shell in the repo — systemd units, the agent portal, editor
@@ -137,6 +142,7 @@ repo-env setup                         # new checkout → managed environment
 - [installing-dev-tools](skills/installing-dev-tools/SKILL.md) — where a tool belongs + reproducible install
 - [normalizing-dotfiles](skills/normalizing-dotfiles/SKILL.md) — triage installer-written dotfile changes
 - [using-project-envs](skills/using-project-envs/SKILL.md) — per-repo environments, activation, agent launches
+- [running-persistent-agents](skills/running-persistent-agents/SKILL.md) — always-on remote-controlled agents: systemd supervision, resume, recovery
 - [auditing-dev-machine](skills/auditing-dev-machine/SKILL.md) — drift detection
 - [backing-up-dev-machine](skills/backing-up-dev-machine/SKILL.md) — back up vs rebuild
 

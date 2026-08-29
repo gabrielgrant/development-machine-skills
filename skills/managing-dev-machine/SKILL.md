@@ -46,5 +46,6 @@ owner; anything unowned is drift.
 | Install a tool; decide which layer it belongs in | installing-dev-tools |
 | An installer edited `.bashrc`/`.profile`; `chezmoi diff` is dirty | normalizing-dotfiles |
 | Work on / launch agents in a repo (esp. third-party) | using-project-envs |
+| Run persistent, remotely-accessible agents; fix their sessions | running-persistent-agents |
 | Find unmanaged drift | auditing-dev-machine |
 | Back up or restore persistent state | backing-up-dev-machine |
