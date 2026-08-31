@@ -43,7 +43,10 @@ Remote control refuses to start in an untrusted directory, and that
 dialog needs a terminal — the unit can't accept it for you. Untrusted,
 it crashloops until systemd gives up ("Start request repeated too
 quickly"), so read the journal rather than trusting `enable --now`'s
-exit code.
+exit code. The journal carries systemd's own lines plus
+environment-loading errors (stderr); the supervisor's status output is
+dropped — if a start fails without an obvious cause, add a drop-in with
+`StandardOutput=journal`, reproduce, then remove it.
 
 **One remote-control owner per directory.** A supervisor that starts
 while another instance (including a manual session that ran `/rc`) is

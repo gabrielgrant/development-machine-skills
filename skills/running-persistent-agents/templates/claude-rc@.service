@@ -34,10 +34,19 @@ WorkingDirectory=%h/repos/%i
 # repo-env exec then layers the project's direnv/devbox env on top; it
 # passes straight through in repos with no managed env.
 ExecStart=/bin/bash -lc 'exec repo-env exec claude remote-control --spawn=worktree'
-# The status UI redraws ~1x/s on stdout (~430k journal lines/day per repo).
-# Errors go to stderr, so nothing diagnostic is lost.
+# The status UI redraws ~1x/s on stdout (~430k journal lines/day per repo),
+# so stdout is dropped. StandardError must then be set explicitly: its
+# default (inherit) duplicates the stdout descriptor, which would send
+# stderr to null too. Journalling stderr keeps direnv/repo-env failures --
+# how a broken project env announces itself. Claude Code's own status and
+# error lines ("Session failed", "Environment preserved") are on stdout
+# and are NOT kept; to diagnose a failing supervisor, add a drop-in with
+# StandardOutput=journal, reproduce, then remove it.
 StandardOutput=null
+StandardError=journal
 Restart=always
+# KillMode's default (control-group) is load-bearing: repo-env does not
+# exec claude, so MainPID is repo-env -- mixed/process would signal only it.
 RestartSec=5
 KillSignal=SIGTERM
 TimeoutStopSec=60

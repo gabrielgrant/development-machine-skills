@@ -99,11 +99,11 @@ session was live in the same directory.
 
 Two exits:
 
-- **Preserving** (normal SIGTERM path): skips archive + deregister.
-  The binary carries an "Environment preserved…" status string for
-  this, but it was not observed in the journal on a clean
-  `systemctl --user stop` — treat the surviving pointer file, not that
-  message, as the signal that the environment was kept.
+- **Preserving** (normal SIGTERM path): skips archive + deregister and
+  prints "Environment preserved. Restart `claude remote-control` to
+  reconnect existing sessions." — on stdout, which the unit sends to
+  null, so it never reaches the journal. There, the surviving pointer
+  file is the signal.
 - **Final**: archives every session, then deletes the environment.
 
 SIGKILL takes neither — the process just dies, the server eventually
@@ -131,13 +131,3 @@ Local transcripts (`~/.claude/projects/<slug>/<session-uuid>.jsonl`)
 and worktrees are independent of all server-side state — deleting an
 environment, archiving a session, or wiping the pointer touches none of
 it. Recovery recipes built on that floor: [recovery.md](recovery.md).
-
-## Why the supervision wrapper splits on elapsed time
-
-`--continue` exits nonzero both when there is nothing to resume and
-when a resumed session dies much later (network, crash). A supervisor
-that treats those the same falls through to a fresh environment after
-every late failure — silently abandoning the thread. An immediate exit
-(<10s) means the pointer lookup itself failed; only that case should
-start fresh. Late failures re-exit so the restart loop lands back in
-`--continue` while the pointer is still warm.
