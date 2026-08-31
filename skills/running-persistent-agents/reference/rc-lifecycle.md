@@ -14,6 +14,14 @@ leaning hard on them.
 | Created by | `claude remote-control` registering itself | Anthropic-side (or self-hosted pool), used via `--environment` |
 | Code runs on | **your machine, always** | Anthropic sandbox |
 
+Vocabulary: the **environment** is the container — what claude.ai/code
+groups sessions under in the sidebar, one per `claude remote-control`
+registration. Each thread inside it is a **session** (`cse_…` /
+`session_…`), and the local process serving the environment is the
+**supervisor**. When an environment is deleted server-side, its
+sessions drop into the sidebar's "Other" section with
+`environment_deleted`.
+
 The RC environment is a server-side routing record — machine name,
 directory, branch, repo URL, max sessions. The supervisor long-polls it
 for work; each work item is a session it spawns locally. Nothing about
