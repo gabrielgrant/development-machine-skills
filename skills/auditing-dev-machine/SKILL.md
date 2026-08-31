@@ -23,7 +23,7 @@ Sections and what to do per finding:
 | loader integrity | duplicate/missing marker blocks, installer lines outside them | normalizing-dotfiles |
 | apt drift | manually-installed packages in neither `host/apt-packages.txt` nor the adoption baseline | add to manifest or `apt-mark auto`/remove |
 | etckeeper | uncommitted `/etc` changes | review, `sudo etckeeper commit` |
-| unmanaged binaries | files in `~/.local/bin` etc. with no recorded install | installing-dev-tools ladder |
+| unmanaged binaries | `drift:` entries in `~/.local/bin`/`~/bin` — neither cargo-installed under `~/.local` (`~/.local/.crates.toml`) nor named in any install script (`host/apply.sh`, `host/scripts.d/`, `dotfiles/run_*`, `packages/`) | installing-dev-tools ladder — record the install as a script so the name appears there — or remove |
 | failed units / timers | broken services | fix or remove the unit |
 | stale .envrc | repos with `.envrc` but missing overlay (or vice versa) | `repo-env setup` / delete |
 | devbox global | live global config differs from (or missing in) `devbox-global/` tracked copy | copy `devbox.json` + `devbox.lock` into the repo and commit, or `devbox global rm` the ad-hoc addition |

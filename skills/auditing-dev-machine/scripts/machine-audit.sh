@@ -60,9 +60,38 @@ else
 fi
 
 section "UNMANAGED USER BINARIES"
-find "$HOME/.local/bin" "$HOME/bin" -maxdepth 1 \( -type f -o -type l \) \
-    -printf '%p -> %l\n' 2>/dev/null | sort || true
-echo "(cross-check against server-config commits; unrecorded entries are drift)"
+# An entry is recorded if cargo installed it under ~/.local (listed in
+# ~/.local/.crates.toml) or its name appears in the code of a server-config
+# install script (comments and messages don't count — they name neighbours).
+# Anything else has no owner: installing-dev-tools ladder, or remove.
+bin_records=$(ls "$SERVER_CONFIG_DIR"/host/apply.sh "$SERVER_CONFIG_DIR"/host/scripts.d/*.sh \
+    "$SERVER_CONFIG_DIR"/dotfiles/run_* "$SERVER_CONFIG_DIR"/packages/*/* 2>/dev/null)
+bin_drift=0
+while IFS= read -r bin; do
+    [ -n "$bin" ] || continue
+    name=$(basename "$bin")
+    owner=""
+    if grep -qE "^\"[^\"]+\" = \[.*\"$name\"" "$HOME/.local/.crates.toml" 2>/dev/null; then
+        owner="cargo install --root ~/.local"
+    else
+        for rec in $bin_records; do
+            if grep -vE '^[[:space:]]*(#|echo|printf|log)([[:space:]]|$)' "$rec" 2>/dev/null |
+                    grep -qwF -- "$name"; then
+                owner="${rec#"$SERVER_CONFIG_DIR"/}"
+                break
+            fi
+        done
+    fi
+    link=""
+    [ -L "$bin" ] && link=" -> $(readlink "$bin")"
+    if [ -n "$owner" ]; then
+        echo "ok: $bin$link ($owner)"
+    else
+        echo "drift: $bin$link (no recorded install)"
+        bin_drift=1
+    fi
+done < <(find "$HOME/.local/bin" "$HOME/bin" -maxdepth 1 \( -type f -o -type l \) 2>/dev/null | sort)
+[ "$bin_drift" -eq 0 ] && echo "clean"
 
 section "FAILED UNITS"
 systemctl --failed --no-legend 2>/dev/null || true
