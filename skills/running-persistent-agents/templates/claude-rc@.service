@@ -4,6 +4,9 @@
 #             (%i is the directory name under ~/repos)
 #   Once:     loginctl enable-linger "$USER"   # keep running after logout/reboot
 #
+# Requires workspace trust accepted once interactively in the repo
+# (`cd ~/repos/<repo> && claude`), or this crashloops on every start.
+#
 # Stop only via `systemctl --user stop` (SIGTERM): clean shutdown
 # preserves the server-side environment so the next start reconnects
 # existing claude.ai threads. SIGKILL forfeits that. Claude Code allows
@@ -20,8 +23,15 @@ StartLimitBurst=10
 [Service]
 Type=simple
 WorkingDirectory=%h/repos/%i
+# systemd --user does not inherit the login PATH, and claude lives in
+# ~/.local/bin; repo-env/direnv only prepend to whatever PATH they inherit.
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+# The status UI redraws ~1x/s on stdout (~430k journal lines/day per repo).
+# Errors and the wrapper's own messages go to stderr, so nothing useful is lost.
+StandardOutput=null
 # repo-env exec: project toolchain without an interactive direnv shell
-# (see using-project-envs). Drop it for repos with no managed env.
+# (see using-project-envs). Harmless in repos with no managed env --
+# it passes the command straight through.
 ExecStart=%h/.local/bin/repo-env exec %h/.local/bin/claude-rc-supervise %h/repos/%i --spawn=worktree
 Restart=always
 RestartSec=5

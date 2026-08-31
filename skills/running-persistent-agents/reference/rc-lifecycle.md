@@ -1,9 +1,10 @@
 # Claude Remote Control lifecycle
 
 How `claude remote-control` sessions persist, resume, and get lost.
-None of this is in upstream docs; it was verified against the Claude
-Code 2.1.237 binary (built 2026-08-19). Internals like these can change
-between versions — re-verify the specifics before leaning hard on them.
+None of this is in upstream docs; it was read out of the Claude Code
+2.1.237 binary and the behavioural claims re-checked live on 2.1.252.
+Internals like these can change between versions — re-verify before
+leaning hard on them.
 
 ## "Environment" is two unrelated things
 
@@ -24,8 +25,8 @@ it is compute.
 
 - Path: `~/.claude/projects/<encoded-project-dir>/bridge-pointer.json`
 - Shape: `{sessionId, environmentId, source: "standalone"|"repl", pid, procStart}`
-- Written on startup, refreshed hourly while running, considered fresh
-  for **4 hours** (`BRIDGE_POINTER_TTL_MS`) — the "roughly the last
+- Usually written on startup, refreshed hourly while running,
+  considered fresh for **4 hours** (`BRIDGE_POINTER_TTL_MS`) — the "roughly the last
   4 hours" in `--continue`'s help text.
 
 On startup the supervisor reads it. Pointer's pid dead + `source:
@@ -37,9 +38,32 @@ under a fresh environment.
 
 A cleared or missing pointer is the usual cause of the
 duplicate-thread-on-every-restart symptom: with nothing to reuse, each
-restart registers fresh. Spawn mode is not lost with it — that persists
-separately (`remoteControlSpawnMode` under the project's entry in
-`~/.claude.json`).
+restart registers fresh. Long-running supervisors have been observed
+with no pointer at all, so check the file exists before counting on
+`--continue`.
+
+## Restart loses worktree mode
+
+`--continue` reattaches *the single session recorded in the pointer*,
+not the environment as a whole, and it refuses `--spawn` outright
+("--session-id and --continue cannot be used with --spawn, --capacity,
+or --create-session-in-dir"). So a supervisor that started as
+
+    Capacity: 1/32 - New sessions will be created in an isolated worktree
+
+comes back after `systemctl --user restart` as
+
+    Resuming session session_... - Single session - exits when complete
+
+even though `remoteControlSpawnMode` is still `worktree` under the
+project's entry in `~/.claude.json` (observed on 2.1.237 and 2.1.252).
+The environment id *is* reused, so existing threads reconnect; new
+threads just stop getting their own worktree. The runtime toggle for
+spawn mode (`w`) is TTY-only, so a unit can't correct it.
+
+To force worktree mode back, stop the unit, delete the project's
+`bridge-pointer.json`, and start it — at the cost of the old threads no
+longer reattaching as a group.
 
 If the pointer's pid is still alive, a second instance in the same
 directory refuses to start ("Exiting to avoid a split-brain conflict").
@@ -48,9 +72,11 @@ directory refuses to start ("Exiting to avoid a split-brain conflict").
 
 Two exits:
 
-- **Preserving** (normal SIGTERM path): skips archive + deregister,
-  prints "Environment preserved. Restart `claude remote-control` to
-  reconnect existing sessions."
+- **Preserving** (normal SIGTERM path): skips archive + deregister.
+  The binary carries an "Environment preserved…" status string for
+  this, but it was not observed in the journal on a clean
+  `systemctl --user stop` — treat the surviving pointer file, not that
+  message, as the signal that the environment was kept.
 - **Final**: archives every session, then deletes the environment.
 
 SIGKILL takes neither — the process just dies, the server eventually

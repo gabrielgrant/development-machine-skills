@@ -1,6 +1,6 @@
 ---
 name: running-persistent-agents
-description: Runs persistent, remotely-accessible coding agents on the dev machine — one systemd-supervised claude remote-control per repo, surviving crashes and reboots and reconnecting to the same claude.ai threads. Day-to-day nothing is run on the machine — open claude.ai/code or the mobile app and work in the repo's environment; each thread gets its own worktree session there. Enabling an already-set-up machine for another repo is one command, systemctl --user enable --now claude-rc@<repo>. Use for first-time install on a machine, or to recover when something breaks — a thread died or duplicated in claude.ai/code, a worktree was orphaned, an old session needs reviving.
+description: Runs persistent, remotely-accessible coding agents on the dev machine — one systemd-supervised claude remote-control per repo, surviving crashes and reboots and reconnecting to the same claude.ai threads. Day-to-day nothing is run on the machine — open claude.ai/code or the mobile app and work in the repo's environment; each thread gets its own worktree session there. Enabling an already-set-up machine for another repo is two commands, `claude` once in the repo to accept workspace trust, then systemctl --user enable --now claude-rc@<repo>. Use for first-time install on a machine, or to recover when something breaks — a thread died or duplicated in claude.ai/code, a worktree was orphaned, an old session needs reviving.
 ---
 
 # Running persistent agents
@@ -13,25 +13,41 @@ here — steer entirely from the app.
 
 ## Install
 
-Once per machine — both files are dotfile-layer state, so record them:
+Once per machine. Both files are dotfile-layer state, so record them:
 
 ```bash
-cp templates/claude-rc-supervise ~/.local/bin/        # from this skill
-cp templates/claude-rc@.service ~/.config/systemd/user/
+mkdir -p ~/.local/bin ~/.config/systemd/user
+SKILL=~/.agents/skills/running-persistent-agents      # this skill's own dir
+cp "$SKILL"/templates/claude-rc-supervise ~/.local/bin/
+cp "$SKILL"/templates/claude-rc@.service ~/.config/systemd/user/
 chezmoi add ~/.local/bin/claude-rc-supervise \
             ~/.config/systemd/user/claude-rc@.service
 loginctl enable-linger "$USER"    # units outlive logout and reboot
 ```
 
-Commit in `$SERVER_CONFIG_DIR` like any deliberate machine change.
+Commit in the server-config repo (`~/server-config`) like any
+deliberate machine change. `chezmoi add` records the two files only —
+the linger flag and which repos are enabled aren't dotfile state, so
+note the enabled repos wherever the host layer lives if a rebuild
+should restore them.
 
 Once per repo, lazily — whenever a repo should first host a persistent
 agent (its environment should already be set up per using-project-envs,
 since the unit launches through `repo-env exec`):
 
 ```bash
-systemctl --user enable --now claude-rc@<repo>   # %i = dir under ~/repos
+cd ~/repos/<repo> && claude    # once: accept the workspace trust dialog, then quit
+systemctl --user enable --now claude-rc@<repo>           # %i = dir under ~/repos
+journalctl --user -u claude-rc@<repo> -n 20 --no-pager   # confirm it came up
 ```
+
+Remote control refuses to start in an untrusted directory, and that
+dialog needs a terminal — the unit can't accept it for you. Untrusted,
+it crashloops until systemd gives up ("Start request repeated too
+quickly"), so read the journal rather than trusting `enable --now`'s
+exit code. A repo already running a hand-started supervisor needs
+[reference/recovery.md](reference/recovery.md) first — adoption isn't
+in-place.
 
 ## Day-to-day
 
@@ -40,6 +56,11 @@ supervisor, only via `systemctl --user stop|restart claude-rc@<repo>`:
 SIGTERM lets it hand its threads back for reconnection, `kill -9`
 forfeits them.
 
+Restart reconnects existing threads but comes back in single-session
+mode — new threads stop getting their own worktree until the supervisor
+next starts fresh ([reference/rc-lifecycle.md](reference/rc-lifecycle.md),
+"Restart loses worktree mode").
+
 The one thing systemd can't host is a session you also *sit in*
 locally (there's no TTY to attach). For that, run `claude` in the repo
 — `/rc` makes it remotely steerable too — inside tmux if it should
@@ -47,7 +68,8 @@ survive SSH disconnects. That's tmux's only remaining role here.
 
 ## When something breaks
 
-Dead or duplicated threads, orphaned worktrees, reviving old sessions:
+Dead or duplicated threads, orphaned worktrees, reviving old sessions,
+adopting a hand-started supervisor:
 [reference/recovery.md](reference/recovery.md). What resume does under
 the covers — the pointer file, environment reuse, what each failure
 message means: [reference/rc-lifecycle.md](reference/rc-lifecycle.md).

@@ -18,7 +18,30 @@ failure below loses conversation history.
 | Environment gone for good ("cleaned up on the server and can't be resumed") | `cd <worktree> && claude --resume <session-uuid>` continues the conversation locally; `/rc` inside it restores remote steering — as a new claude.ai thread, the old one being unrecoverable. |
 | Which worktree belongs to which session? | Worktree names embed the server session id (`bridge-cse_…`); each transcript dir under `~/.claude/projects/` is keyed by the worktree path and records branch, title, and last prompt. |
 
-Two habits prevent most of this:
+## Adopting a repo that already has a hand-started supervisor
+
+A `claude remote-control` started by hand can't be adopted in place:
+the unit won't start while another instance holds the same directory,
+and every claude.ai thread that supervisor hosts is one of its child
+processes and dies with it — including, quite possibly, the session
+you are reading this in. Check with `ps -o ppid= -p $$` and walk the
+ancestry before starting.
+
+Do the switch from somewhere that supervisor doesn't own — another
+repo's session, a local `claude` in tmux, or plain SSH:
+
+```bash
+kill -TERM <old-pid>          # never -9; SIGTERM is what preserves the environment
+systemctl --user enable --now claude-rc@<repo>
+```
+
+Threads reconnect only if `~/.claude/projects/<encoded-dir>/bridge-pointer.json`
+exists and is under 4h old. Check for it *first* — long-running
+hand-started supervisors have been found without one, and then the new
+unit registers a fresh environment and the old threads must be revived
+individually (table above).
+
+## Two habits prevent most of this
 
 - Stop supervisors only with SIGTERM (`systemctl --user stop`), never
   `kill -9` — clean shutdown is what preserves the environment for
