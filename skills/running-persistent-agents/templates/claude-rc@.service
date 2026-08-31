@@ -7,11 +7,16 @@
 # Requires workspace trust accepted once interactively in the repo
 # (`cd ~/repos/<repo> && claude`), or this crashloops on every start.
 #
+# Deliberately NOT `--continue`: resuming forces spawnMode to
+# single-session and skips pointer-based environment reuse. A plain start
+# reads the bridge pointer, re-registers the same environment (so threads
+# reconnect), and keeps worktree spawning. Restart is therefore idempotent
+# and needs no wrapper logic.
+#
 # Stop only via `systemctl --user stop` (SIGTERM): clean shutdown
 # preserves the server-side environment so the next start reconnects
-# existing claude.ai threads. SIGKILL forfeits that. Claude Code allows
-# stuck sessions a 30s internal shutdown grace, so TimeoutStopSec stays
-# above it.
+# existing threads. SIGKILL forfeits that. Claude Code allows stuck
+# sessions a 30s internal shutdown grace, so TimeoutStopSec stays above it.
 
 [Unit]
 Description=Claude Remote Control (%i)
@@ -23,16 +28,15 @@ StartLimitBurst=10
 [Service]
 Type=simple
 WorkingDirectory=%h/repos/%i
-# systemd --user does not inherit the login PATH, and claude lives in
-# ~/.local/bin; repo-env/direnv only prepend to whatever PATH they inherit.
-Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+# bash -lc so the machine's own shell layer applies (~/.profile ->
+# ~/.config/shell/profile.d/*: ~/.local/bin, rustup, Devbox Global) --
+# systemd --user inherits none of it, and agents need those tools.
+# repo-env exec then layers the project's direnv/devbox env on top; it
+# passes straight through in repos with no managed env.
+ExecStart=/bin/bash -lc 'exec repo-env exec claude remote-control --spawn=worktree'
 # The status UI redraws ~1x/s on stdout (~430k journal lines/day per repo).
-# Errors and the wrapper's own messages go to stderr, so nothing useful is lost.
+# Errors go to stderr, so nothing diagnostic is lost.
 StandardOutput=null
-# repo-env exec: project toolchain without an interactive direnv shell
-# (see using-project-envs). Harmless in repos with no managed env --
-# it passes the command straight through.
-ExecStart=%h/.local/bin/repo-env exec %h/.local/bin/claude-rc-supervise %h/repos/%i --spawn=worktree
 Restart=always
 RestartSec=5
 KillSignal=SIGTERM

@@ -36,10 +36,13 @@ systemctl --user enable --now claude-rc@<repo>
 ```
 
 Threads reconnect only if `~/.claude/projects/<encoded-dir>/bridge-pointer.json`
-exists and is under 4h old. Check for it *first* — long-running
-hand-started supervisors have been found without one, and then the new
-unit registers a fresh environment and the old threads must be revived
-individually (table above).
+exists and is under 4h old. Check for it *first*: a supervisor that
+started while another instance held the directory never writes one
+(rc-lifecycle.md, "Pointer ownership"), and then the new unit registers
+a fresh environment and the old threads must be revived individually
+(table above). Make sure nothing else — including a manual session that
+ran `/rc` — is left holding the directory, or the new unit inherits the
+same problem.
 
 ## Two habits prevent most of this
 
