@@ -7,14 +7,15 @@ enough for the server to clean up. Model background:
 
 Ground truth first: local transcripts
 (`~/.claude/projects/<encoded-dir>/<session-uuid>.jsonl`) survive
-everything — no failure below loses conversation history. Worktrees are
-less durable than they look: a supervisor's *graceful* shutdown removes
-the worktrees (and their branches) of the sessions it is actively
-serving ("Shutting down 1 active session(s)… / removed worktree …",
-observed live); crashed or disconnected sessions keep theirs ("Your
-work is safe — worktrees kept"). Uncommitted files in a removed
-worktree have not been tested — commit before stopping a supervisor
-with live sessions. `claude --resume` still works after removal:
+everything — no failure below loses conversation history. Worktrees:
+on graceful shutdown the supervisor checks each active session's
+worktree and removes it — branch included — only if it is clean and has
+no commits beyond its original head ("removed worktree …"); anything
+dirty or ahead is kept and says so ("kept worktree … · uncommitted
+changes" / "· N commits"), as are worktrees of crashed or disconnected
+sessions ("Your work is safe — worktrees kept"). So removal only ever
+hits work that is already fully merged. `claude --resume` still works
+after removal:
 transcripts are keyed by directory path, so recreating the directory —
 even empty — is enough. But an empty recreation is not a git worktree,
 and git commands in it silently fall through to the *main* repo;
