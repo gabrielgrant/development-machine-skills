@@ -62,7 +62,10 @@ Nothing to run on the machine. If you must stop or restart a
 supervisor, only via `systemctl --user stop|restart claude-rc@<repo>`:
 SIGTERM lets it hand its threads back for reconnection, `kill -9`
 forfeits them. Restart is idempotent — the unit re-registers the same
-environment and keeps worktree spawning.
+environment and keeps worktree spawning. One caveat: a graceful stop
+removes the worktrees of sessions it is actively serving — transcripts
+survive and the sessions resume afterwards, but commit worktree changes
+before stopping (reference/recovery.md).
 
 Don't add `--continue` to the unit. It looks like the way to resume,
 but it forces single-session mode and skips environment reuse

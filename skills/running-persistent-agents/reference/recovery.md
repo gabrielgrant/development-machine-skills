@@ -6,9 +6,20 @@ enough for the server to clean up. Model background:
 [rc-lifecycle.md](rc-lifecycle.md).
 
 Ground truth first: local transcripts
-(`~/.claude/projects/<encoded-dir>/<session-uuid>.jsonl`) and the
-spawned worktrees are independent of every server-side state. No
-failure below loses conversation history.
+(`~/.claude/projects/<encoded-dir>/<session-uuid>.jsonl`) survive
+everything — no failure below loses conversation history. Worktrees are
+less durable than they look: a supervisor's *graceful* shutdown removes
+the worktrees (and their branches) of the sessions it is actively
+serving ("Shutting down 1 active session(s)… / removed worktree …",
+observed live); crashed or disconnected sessions keep theirs ("Your
+work is safe — worktrees kept"). Uncommitted files in a removed
+worktree have not been tested — commit before stopping a supervisor
+with live sessions. `claude --resume` still works after removal:
+transcripts are keyed by directory path, so recreating the directory —
+even empty — is enough. But an empty recreation is not a git worktree,
+and git commands in it silently fall through to the *main* repo;
+restore it properly with
+`git -C <repo> worktree add <path> -b <branch> <commit>`.
 
 | Symptom | Recovery |
 |---|---|

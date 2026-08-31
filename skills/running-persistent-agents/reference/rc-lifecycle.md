@@ -118,8 +118,12 @@ Two exits:
 SIGKILL takes neither — the process just dies, the server eventually
 notices, and sessions that end while the machine is offline are cleaned
 up server-side ("…the environment was cleaned up on the server and
-can't be resumed"). Worktrees are deliberately kept ("Your work is safe
-— worktrees kept: …").
+can't be resumed"). Worktree fate differs by path: crashes and
+disconnects keep them ("Your work is safe — worktrees kept: …"), while
+a *graceful* shutdown removes the worktrees and branches of the
+sessions it is actively serving ("removed worktree <path>", observed
+2026-08-31). Transcripts are unaffected either way; recovery.md covers
+restoring a removed worktree.
 
 Shutdown allows stuck sessions a 30s grace before force-kill; give any
 supervisor a stop timeout above that.
