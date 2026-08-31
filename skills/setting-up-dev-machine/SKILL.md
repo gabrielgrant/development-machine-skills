@@ -44,6 +44,12 @@ host package later = edit the manifest, rerun apply, commit.
 `~/.config/shell/` and `~/.config/direnv/lib/`. From then on the loader
 blocks and snippets are chezmoi-managed; installer edits show up in
 `chezmoi diff` (handle those with the normalizing-dotfiles skill).
+On a rebuild from an existing `$SERVER_CONFIG_DIR`, `chezmoi apply` at
+this step also replays the recorded `run_onchange_*` installer scripts
+(repo-env, codex, …) — that is what restores user-level tools, so it
+runs before anything that execs them (`claude-rc@` units). A script that
+needs cargo fails until rustup is installed (installing-dev-tools);
+install it, rerun apply.
 
 **4. Host extras.** Anything needing an apt repo/keyring or a checksummed
 binary download gets an idempotent script in

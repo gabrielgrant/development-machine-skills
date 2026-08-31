@@ -20,8 +20,13 @@ npx skills add gabrielgrant/development-machine-skills
 The `repo-env` CLI, on the dev machine:
 
 ```bash
-cargo install --git https://github.com/gabrielgrant/development-machine-skills repo-env
+cargo install --git https://github.com/gabrielgrant/development-machine-skills --root ~/.local repo-env
 ```
+
+(`--root ~/.local` puts it in `~/.local/bin`, the user-bin dir the setup
+keeps on PATH. On a managed machine, record it instead of typing it:
+[using-project-envs](skills/using-project-envs/SKILL.md) ships a chezmoi
+`run_onchange_` script that runs exactly this, pinned to a commit.)
 
 ## The model
 

@@ -21,8 +21,25 @@ Two modes, chosen by ownership:
 origin, prefer `--in-repo`.
 
 The `repo-env` tool (Rust, in this repo under `tools/repo-env/`) automates
-the mapping; install once with
-`cargo install --git https://github.com/gabrielgrant/development-machine-skills repo-env`.
+the mapping. It is a machine-level install and is recorded like one
+(installing-dev-tools level 5 — `cargo install` is the installer):
+
+```bash
+SKILL=~/.agents/skills/using-project-envs        # this skill's own dir
+cp "$SKILL"/templates/run_onchange_install-repo-env.sh "$SERVER_CONFIG_DIR/dotfiles/"
+chezmoi apply    # runs: cargo install --git … --rev <pinned> --root ~/.local repo-env
+```
+
+`--root ~/.local` lands the binary in `~/.local/bin` — the user-bin dir
+the setup keeps on PATH for every login shell, so systemd units
+(`bash -lc`) find it without `~/.cargo/env` — and records it in
+`~/.local/.crates.toml`, which the audit reads as the install record.
+Needs cargo (rustup, via installing-dev-tools) first; the script fails
+loudly until then and chezmoi retries on the next apply. Upgrade = bump
+the pinned rev in the script and commit; chezmoi reruns it on change.
+Persistent-agent units (running-persistent-agents) exec `repo-env`, so
+this comes before enabling any of them. On an unmanaged machine the
+same `cargo install` line, with those flags, is the ad hoc equivalent.
 
 ## Entering a repo for the first time
 

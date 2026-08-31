@@ -72,7 +72,11 @@ differ, don't use `--numeric-ids` — fix ownership on the destination after).
     aside copied installer-managed dirs before reinstalling their tools
     (`mv ~/.rustup ~/.rustup.old` etc.), reinstall via
     **installing-dev-tools**, then restore useful caches/config from the
-    copies.
+    copies. Persistent-agent units (`claude-rc@`, restored by chezmoi)
+    exec `repo-env`, which `chezmoi apply` rebuilds from the recorded
+    `run_onchange_install-repo-env.sh` — that needs rustup back first.
+    Reinstall rustup, rerun `chezmoi apply`, check `repo-env doctor`,
+    and only then enable any `claude-rc@` instance in Phase 5.
 11. APT: build an approved list from the old inventory's
     `apt-commandlines.txt` (the `Commandline:` entries are what you actually
     typed) minus provisioning noise (grub, qemu-guest-agent, unattended

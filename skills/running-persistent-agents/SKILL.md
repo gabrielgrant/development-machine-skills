@@ -13,7 +13,13 @@ here — steer entirely from the app.
 
 ## Install
 
-Once per machine. Both files are dotfile-layer state, so record them:
+Once per machine. Prerequisite: `repo-env` installed *and recorded*
+(using-project-envs — the `run_onchange_install-repo-env.sh` script in
+`$SERVER_CONFIG_DIR/dotfiles/`, applied by `chezmoi apply`). ExecStart
+execs it through `bash -lc`, which finds it in `~/.local/bin`; a rebuild
+that restores the unit without that script crashloops on a missing
+binary. Then the unit itself — both files are dotfile-layer state, so
+record them:
 
 ```bash
 mkdir -p ~/.config/systemd/user
