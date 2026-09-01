@@ -141,9 +141,14 @@ environment has expired. Creating a fresh session instead."), but in
 practice the backend honored `reuseEnvironmentId` for an environment
 that had shown `environment_deleted` for days — the id was resurrected,
 the original thread reattached, and the session's `last_init_error`
-cleared (verified 2026-08-31 on 2.1.252). The server's error text
-("its state cannot be recovered") describes the environment's serving
-state, not the recoverability of its id or sessions.
+cleared (verified 2026-08-31 on 2.1.252). Note the mechanism: the
+server mints a new environment object under the old id, and only the
+session named in the `bridge/reconnect` call is re-bound to it. Other
+sessions of the old environment regroup in the sidebar (grouping is by
+id) yet still fail with `environment_deleted` until each is
+reconnected in turn. The server's error text ("its state cannot be
+recovered") is accurate for the *old* object; the id and its sessions
+are recoverable session by session.
 
 ## What survives everything
 
