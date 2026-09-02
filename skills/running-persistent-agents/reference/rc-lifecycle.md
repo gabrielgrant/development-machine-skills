@@ -51,6 +51,18 @@ restart registers fresh. Long-running supervisors have been observed
 with no pointer at all, so check the file exists before counting on
 `--continue`.
 
+## No quiet or headless mode for the server
+
+The status UI redraws ~1x/s and there is no flag to suppress it while
+keeping real output: `--headless` in the binary is the Chrome
+integration, `--quiet`/`--silent` are git-subprocess flags, and
+`--log-level`/`--log-file` belong to the `gateway` subcommand, not
+`remote-control`. So the choice is journal the whole stream (status
+noise included, bounded by journald's disk caps — this is what the unit
+does) or filter it through a wrapper that drops the pure-redraw lines
+(`Capacity`, `space to show`, `Continue coding`) while keeping the rest.
+Do not null it: Claude Code's own errors ride the same stdout stream.
+
 ## Why not --continue
 
 Resuming and plain-starting are different code paths, and the resume
