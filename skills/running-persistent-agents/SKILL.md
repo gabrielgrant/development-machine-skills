@@ -26,24 +26,37 @@ mkdir -p ~/.config/systemd/user
 SKILL=~/.agents/skills/running-persistent-agents      # this skill's own dir
 cp "$SKILL"/templates/claude-rc@.service ~/.config/systemd/user/
 chezmoi add ~/.config/systemd/user/claude-rc@.service
-loginctl enable-linger "$USER"    # units outlive logout and reboot
+cp "$SKILL"/templates/enable-claude-rc.sh "$SERVER_CONFIG_DIR/host/scripts.d/"
 ```
 
 Commit in the server-config repo (`~/server-config`) like any
-deliberate machine change. `chezmoi add` records the unit only — the
-linger flag and which repos are enabled aren't dotfile state, so note
-the enabled repos wherever the host layer lives if a rebuild should
-restore them.
+deliberate machine change. `chezmoi add` records the unit template
+only. The linger flag and *which repos are enabled* aren't dotfile
+state and would otherwise be pure drift — a rebuilt machine gets the
+unit template back and no supervisors. Both live in the host script
+instead: `enable-claude-rc.sh` sets linger and enables a `REPOS` list
+that you edit as the record, and `host/apply.sh` runs it. It enables
+only repos whose workspace trust is already recorded and prints the
+command for the rest, so a rebuild never leaves a crashlooping unit
+behind (see the trust note below).
 
 Once per repo, lazily — whenever a repo should first host a persistent
 agent (its environment should already be set up per using-project-envs,
-since the unit launches through `repo-env exec`):
+since the unit launches through `repo-env exec`). `new-project --serve
+<repo>` (using-project-envs) does all of the below except the trust
+dialog, for a new or existing repo; by hand:
 
 ```bash
 cd ~/repos/<repo> && claude    # once: accept the workspace trust dialog, then quit
 systemctl --user enable --now claude-rc@<repo>           # %i = dir under ~/repos
 journalctl --user -u claude-rc@<repo> -n 20 --no-pager   # confirm it came up
 ```
+
+The repo needs at least one commit. `--spawn=worktree` branches per
+session, and `git worktree add` cannot branch from an unborn HEAD, so a
+freshly-`git init`ed repo passes `repo-env setup` and every check here,
+then fails at the first thread from the app. Commit the environment
+files (`repo-env setup` writes them) before enabling.
 
 Remote control refuses to start in an untrusted directory, and that
 dialog needs a terminal — the unit can't accept it for you. Untrusted,
@@ -53,6 +66,15 @@ exit code. The journal carries systemd's own lines plus
 environment-loading errors (stderr); the supervisor's status output is
 dropped — if a start fails without an obvious cause, add a drop-in with
 `StandardOutput=journal`, reproduce, then remove it.
+
+There is no headless way to accept trust, and one apparent way is a
+trap: `claude -p '…'` in an untrusted directory *runs and exits 0*
+while leaving `hasTrustDialogAccepted: false` in `~/.claude.json` — it
+bypasses the check rather than recording consent, so the supervisor
+still refuses. Nor is hand-editing that flag a shortcut worth taking:
+it is a security boundary, the file is rewritten live by every running
+session and every other supervisor, and an agent asked to do it should
+expect to be blocked. Accept the dialog in a terminal.
 
 **One remote-control owner per directory.** A supervisor that starts
 while another instance (including a manual session that ran `/rc`) is

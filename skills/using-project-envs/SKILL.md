@@ -43,6 +43,31 @@ same `cargo install` line, with those flags, is the ad hoc equivalent.
 
 ## Entering a repo for the first time
 
+`new-project` (scripts/new-project.sh, installed to `~/.local/bin` and
+`chezmoi add`ed) is the whole path in one command, and needs no agent:
+
+```bash
+new-project my-thing            # ~/repos/my-thing, created if absent
+new-project --serve my-thing    # ...and give it a persistent agent
+new-project --in-repo ~/repos/a-clone   # a repo you own that has an origin
+```
+
+It creates the directory if needed, runs `repo-env setup --git-init`,
+and makes the initial commit if HEAD is unborn — that last step matters
+because an unborn HEAD passes every check here and then breaks
+worktree-spawning agents (running-persistent-agents). It commits only
+the environment files: it also runs on directories that already have
+content, where a blind `git add -A` on a repo with no `.gitignore` is
+how build output and secrets get committed. Anything else is reported,
+not staged. With `--serve` it appends the repo to the `REPOS` list in
+`host/scripts.d/enable-claude-rc.sh` and runs it, so enabling lives in
+one place.
+
+The four entry shapes — empty directory, directory with files but no
+git, a repo with history, a clone — differ on only two axes: whether
+there is a commit, and whether there is an origin. (A bare repo is not
+one of them; clone it first.) The steps by hand:
+
 ```bash
 cd ~/repos/some-project
 repo-env setup        # offers git init if needed (--git-init to skip the
