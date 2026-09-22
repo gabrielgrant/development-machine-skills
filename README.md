@@ -55,17 +55,27 @@ core files.
 
 ```bash
 cd ~/repos
-git clone git@github.com:someorg/proj.git proj   # existing project
-mkdir proj                                       # or brand-new — no GitHub repo needed
+
+
+# for an existing project:
+git clone git@github.com:someorg/proj.git proj
+
+# for a brand-new project:
+mkdir proj
+
+
 cd proj
 repo-env setup     # once per checkout (offers git init for fresh dirs)
 ```
 
 For **your own projects** (no origin remote yet), setup defaults to a
 committable `devbox.json` + `.envrc` in the repo — it travels with the
-project and works on any machine. For **third-party repos** it defaults to
+project and works on any machine.
+
+For **third-party repos** it defaults to
 a personal overlay outside the repo so upstream stays untouched
-(`--in-repo`/`--overlay` override either way).
+
+(To explictly override these defaults, use `--in-repo` or `--overlay`)
 
 From then on, `cd`-ing into the repo activates its environment
 automatically, and **anything you launch from that shell — including
@@ -77,14 +87,22 @@ surface, or do it yourself (`devbox add <pkg>`, plus
 
 On the dev machine:
 
-- **Claude:** the
-  [running-persistent-agents](skills/running-persistent-agents/SKILL.md)
-  skill — one systemd-supervised `claude remote-control` per repo.
-  Threads opened in [claude.ai/code](https://claude.ai/code) or the
-  mobile app each get their own worktree session on the machine and
-  survive crashes and reboots. For a session you also want to sit in
+- **Claude:** A remote-controllable claude process allows multiple threads
+  to be opened in [claude.ai/code](https://claude.ai/code) or the
+  native app. In a new project run
+  1. `claude` once in the repo to accept workspace trust
+  2. `systemctl --user enable --now claude-rc@<repo>`
+  
+  Each thread will get its own worktree session on the machine and will
+  survive across crashes and reboots.
+
+  For a session you also want to sit in
   locally, run `claude --remote-control` in the repo, in tmux
-  ([docs](https://code.claude.com/docs/en/remote-control)).
+  
+  
+  More details in the
+  [running-persistent-agents skill](skills/running-persistent-agents/SKILL.md)
+  and the [Claude docs](https://code.claude.com/docs/en/remote-control)).
 - **Codex:** run `codex remote-control start` then `codex remote-control
   pair` once on the dev machine — a daemon that pairs with the ChatGPT
   mobile/desktop app and surfaces the machine's codex sessions there,
